@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lesson Builder — prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&family=Roboto+Mono:wght@500;700&family=Roboto+Slab:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme: light;
+  --tbt-blue:#0856C9; --tbt-blue-dark:#063F94;
+  --tbt-gi:#663366; --tbt-pd:#006600;
+  --canvas:#F6F8FC; --surface:#FFFFFF; --input:#F0F5FE; --selected:#EDF4FF;
+  --border:#D8E3F0; --ink:#1F2937; --muted:#667085;
+  --success:#16803C; --success-bg:#ECFDF3; --error:#C62828; --error-bg:#FFF1F1;
+  --amber:#9A5B00; --amber-bg:#FFF6E5;
+  --shadow:0 6px 20px rgba(24,56,96,.07);
+  --ring:0 0 0 3px rgba(8,86,201,.18);
+  --look:var(--tbt-gi);
+  --font-ui:"Roboto",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+  --font-content:"Roboto Slab",Georgia,"Times New Roman",serif;
+  --font-id:"Roboto Mono",ui-monospace,Menlo,Consolas,monospace;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --canvas:#0E1420; --surface:#161E2C; --input:#1C2738; --selected:#1A2A44;
+    --border:#2A3A52; --ink:#E6EBF3; --muted:#9AA6B8;
+    --success:#4CC27A; --success-bg:#12291D; --error:#FF7A7A; --error-bg:#2E1717;
+    --amber:#F0B45A; --amber-bg:#2D2414;
+    --tbt-gi:#B983B9; --tbt-pd:#5FB85F;
+    --shadow:0 6px 20px rgba(0,0,0,.35);
+    --ring:0 0 0 3px rgba(90,150,255,.35);
+    --tbt-blue:#4D8DF0; --tbt-blue-dark:#2F6FD6;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --canvas:#0E1420; --surface:#161E2C; --input:#1C2738; --selected:#1A2A44;
+  --border:#2A3A52; --ink:#E6EBF3; --muted:#9AA6B8;
+  --success:#4CC27A; --success-bg:#12291D; --error:#FF7A7A; --error-bg:#2E1717;
+  --amber:#F0B45A; --amber-bg:#2D2414;
+  --tbt-gi:#B983B9; --tbt-pd:#5FB85F;
+  --shadow:0 6px 20px rgba(0,0,0,.35);
+  --ring:0 0 0 3px rgba(90,150,255,.35);
+  --tbt-blue:#4D8DF0; --tbt-blue-dark:#2F6FD6;
+}
+:where(*,*::before,*::after){box-sizing:inherit}
+html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 16px)}
+body{margin:0;background:var(--canvas);color:var(--ink);font:400 16px/1.5 var(--font-ui)}
+.wrap{max-width:1180px;margin:0 auto;padding:48px 24px 96px}
+
+/* page identity */
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:48px}
+.top h1{font:700 34px/1.1 var(--font-id);letter-spacing:.01em;margin:0;color:var(--tbt-blue)}
+.top p{margin:8px 0 0;color:var(--muted);max-width:60ch}
+.top .actions{display:flex;gap:12px;flex-shrink:0}
+
+.layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:40px;align-items:start}
+
+/* stage nav */
+.nav{position:sticky;top:calc(env(safe-area-inset-top,0px) + 24px);display:flex;flex-direction:column;gap:4px}
+.nav a{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;color:var(--ink);text-decoration:none;font-weight:500;font-size:15px}
+.nav a:hover{background:var(--selected)}
+.nav a:focus-visible{outline:none;box-shadow:var(--ring)}
+.dot{width:22px;height:22px;border-radius:50%;border:2px solid var(--border);display:grid;place-items:center;font-size:12px;font-weight:700;color:transparent;flex-shrink:0;transition:background .2s,border-color .2s}
+.dot.part{border-color:var(--amber);background:var(--amber-bg)}
+.dot.done{border-color:var(--success);background:var(--success);color:#fff}
+.nav .sum{margin-top:16px;padding:16px 12px 0;border-top:1px solid var(--border);color:var(--muted);font-size:14px}
+.nav .sum strong{color:var(--ink)}
+
+/* stage cards */
+.stages{display:flex;flex-direction:column;gap:40px}
+.stage{background:var(--surface);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow);padding:40px}
+.stage > h2{font:700 22px/1.25 var(--font-content);margin:0 0 4px}
+.stage > .lead{color:var(--muted);margin:0 0 32px;max-width:66ch}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.field{display:flex;flex-direction:column;gap:8px;margin-bottom:24px}
+.field:last-child{margin-bottom:0}
+.field > label,.field > .lbl{font-weight:600;font-size:15px}
+.hint{color:var(--muted);font-size:14px;font-weight:400}
+.row-between{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+
+input[type=text],input[type=url],input[type=number],select,textarea{
+  font:400 16px/1.45 var(--font-ui);color:var(--ink);background:var(--input);
+  border:1px solid transparent;border-radius:12px;padding:11px 14px;width:100%;
+  transition:background .15s,border-color .15s,box-shadow .15s}
+textarea{resize:vertical;min-height:96px}
+.content{font-family:var(--font-content)}
+input:focus,select:focus,textarea:focus{outline:none;background:var(--surface);border-color:var(--tbt-blue);box-shadow:var(--ring)}
+textarea.mono{font:400 13.5px/1.55 ui-monospace,Menlo,Consolas,monospace;white-space:pre;overflow-x:auto}
+.time{width:96px;text-align:center;font-variant-numeric:tabular-nums}
+
+/* buttons */
+.btn{font:600 15px/1 var(--font-ui);border-radius:12px;height:44px;padding:0 18px;border:1px solid var(--border);background:var(--surface);color:var(--tbt-blue);cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:background .15s,transform .15s,border-color .15s}
+.btn:hover{background:var(--selected);border-color:var(--tbt-blue)}
+.btn:focus-visible{outline:none;box-shadow:var(--ring)}
+.btn.primary{background:var(--tbt-blue);border-color:var(--tbt-blue);color:#fff}
+.btn.primary:hover{background:var(--tbt-blue-dark);transform:translateY(-1px)}
+.btn.primary:disabled{opacity:.5;transform:none;cursor:not-allowed}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.ghost:hover{background:var(--selected);border-color:transparent}
+.btn.small{height:36px;padding:0 12px;font-size:14px}
+.btn.danger{color:var(--error)}
+.btn.danger:hover{background:var(--error-bg);border-color:transparent}
+.iconbtn{width:40px;height:40px;border-radius:10px;border:0;background:transparent;color:var(--muted);cursor:pointer;display:grid;place-items:center}
+.iconbtn:hover{background:var(--error-bg);color:var(--error)}
+.iconbtn:focus-visible{outline:none;box-shadow:var(--ring)}
+
+/* segmented + checks */
+.seg{display:inline-flex;background:var(--input);border-radius:12px;padding:4px;gap:4px;flex-wrap:wrap}
+.seg button{font:600 14px/1 var(--font-ui);border:0;background:transparent;color:var(--ink);border-radius:9px;height:36px;padding:0 14px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--tbt-blue);box-shadow:0 1px 3px rgba(24,56,96,.15)}
+.seg button:focus-visible{outline:none;box-shadow:var(--ring)}
+.seg .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px;vertical-align:-1px}
+.checks{display:flex;gap:12px;flex-wrap:wrap}
+.check{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:12px;padding:10px 14px;cursor:pointer;font-weight:500}
+.check:has(input:checked){border-color:var(--tbt-blue);background:var(--selected)}
+.check input{accent-color:var(--tbt-blue);width:18px;height:18px;margin:0}
+
+/* images */
+.pickers{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.pick{border:1.5px dashed var(--border);border-radius:16px;aspect-ratio:16/10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;background:transparent;color:var(--ink);font:500 14px/1.3 var(--font-ui);padding:12px;text-align:center}
+.pick:hover{border-color:var(--tbt-blue);background:var(--selected)}
+.pick:focus-visible{outline:none;box-shadow:var(--ring)}
+.pick small{color:var(--muted);font-size:12.5px;word-break:break-all}
+.pick.set{border-style:solid;border-color:var(--success);background:var(--success-bg)}
+.pick.set small{color:var(--success)}
+
+/* warm-up */
+.wq{display:grid;grid-template-columns:28px 1fr;gap:16px;padding:24px 0;border-top:1px solid var(--border)}
+.wq:first-of-type{border-top:0;padding-top:0}
+.num{width:28px;height:28px;border-radius:50%;background:var(--look);color:#fff;display:grid;place-items:center;font:700 13px/1 var(--font-ui);margin-top:6px}
+.wq .line{display:grid;grid-template-columns:1fr 150px;gap:12px;margin-bottom:12px}
+.wq .line2{display:grid;grid-template-columns:1fr 200px;gap:12px;align-items:start}
+.mp3{height:100%;min-height:96px;border:1.5px dashed var(--border);border-radius:12px;background:transparent;color:var(--ink);font:500 14px/1.3 var(--font-ui);cursor:pointer;padding:8px}
+.mp3:hover{border-color:var(--tbt-blue);background:var(--selected)}
+.mp3.set{border-style:solid;border-color:var(--success);background:var(--success-bg);color:var(--success)}
+
+/* timeline — the memorable bit */
+.timeline{margin:8px 0 32px}
+.tl-bar{position:relative;height:56px;border-radius:12px;overflow:hidden;display:flex;background:var(--input)}
+.tl-seg{position:absolute;top:0;height:100%;display:flex;align-items:flex-end;padding:0 0 6px 8px;color:#fff;font:700 13px/1 var(--font-ui);min-width:0;transition:left .25s ease,width .25s ease}
+.tl-seg.odd{background:var(--look)}
+.tl-seg.even{background:color-mix(in srgb,var(--look) 72%,var(--surface))}
+.embed{grid-column:1/-1}
+.embed summary{cursor:pointer;color:var(--tbt-blue);font-weight:600;font-size:14px;width:max-content;border-radius:8px}
+.embed summary:focus-visible{outline:none;box-shadow:var(--ring)}
+.embed pre{margin:8px 0 0;padding:12px 14px;background:var(--input);border-radius:12px;font:400 12.5px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-all;color:var(--ink)}
+.tl-seg.bad{background:var(--error)!important}
+.tl-tick{position:absolute;top:6px;width:2px;height:14px;background:rgba(255,255,255,.85);border-radius:1px;transform:translateX(-1px)}
+.tl-tick.out{background:var(--error)}
+.tl-scale{display:flex;justify-content:space-between;color:var(--muted);font-size:13px;margin-top:8px;font-variant-numeric:tabular-nums}
+.tl-empty{color:var(--muted);font-size:14px;display:grid;place-items:center;width:100%}
+
+.parts{display:flex;flex-direction:column;gap:16px}
+.part{border:1px solid var(--border);border-radius:16px;padding:24px}
+.part-head{display:grid;grid-template-columns:28px 96px 16px 96px 1fr 40px;gap:12px;align-items:center}
+.part-head .num{margin-top:0}
+.part-head .dash{color:var(--muted);text-align:center}
+.part-body{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:20px;padding-left:40px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.chip{font-size:13px;font-weight:600;border-radius:999px;padding:3px 10px;background:var(--input);color:var(--muted)}
+.chip.ok{background:var(--success-bg);color:var(--success)}
+.chip.warn{background:var(--amber-bg);color:var(--amber)}
+.chip.err{background:var(--error-bg);color:var(--error)}
+.qlist{list-style:none;margin:8px 0 0;padding:0;max-height:168px;overflow:auto;border-radius:12px;background:var(--input)}
+.qlist li{display:grid;grid-template-columns:44px 1fr;gap:8px;padding:8px 12px;font:400 14px/1.4 var(--font-content);border-top:1px solid var(--border)}
+.qlist li:first-child{border-top:0}
+.qlist .t{font:500 13px/1.4 var(--font-ui);color:var(--muted);font-variant-numeric:tabular-nums}
+.qlist .empty{display:block;color:var(--muted);font-family:var(--font-ui)}
+.addrow{display:flex;align-items:center;gap:16px;margin-top:16px}
+.notice{border-radius:12px;padding:12px 16px;font-size:14px;margin-top:16px}
+.notice.err{background:var(--error-bg);color:var(--error)}
+.notice.info{background:var(--selected);color:var(--ink)}
+
+/* glossary */
+.pollq{display:grid;grid-template-columns:28px 1fr;gap:16px;padding:20px 0;border-top:1px solid var(--border)}
+.pollq:first-child{border-top:0;padding-top:8px}
+.pollq .num{margin-top:0}
+.pollq h4{font:500 17px/1.4 var(--font-content);margin:2px 0 10px}
+.pollq ol{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.pollq li{display:grid;grid-template-columns:24px 1fr;gap:8px;font-size:15px;padding:8px 12px;border-radius:10px;background:var(--input)}
+.pollq li b{color:var(--muted)}
+.gloss{width:100%;border-collapse:collapse;font-size:15px}
+.gloss th{font:600 13px/1.3 var(--font-ui);color:var(--muted);text-align:left;padding:0 12px 8px;border-bottom:1px solid var(--border)}
+.gloss td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+.gloss td:first-child{font-family:var(--font-content);font-weight:500}
+.gloss td.miss{color:var(--amber);font-style:italic}
+.gloss-wrap{max-height:360px;overflow:auto}
+.empty-box{border:1.5px dashed var(--border);border-radius:16px;padding:32px;text-align:center;color:var(--muted)}
+
+/* footer */
+.finish{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}
+.finish ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:15px}
+.finish li::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:10px;background:var(--amber);vertical-align:1px}
+.finish li.ok::before{background:var(--success)}
+
+dialog{border:0;border-radius:22px;padding:40px;max-width:560px;width:calc(100% - 48px);background:var(--surface);color:var(--ink);box-shadow:0 20px 60px rgba(8,30,70,.25)}
+dialog::backdrop{background:rgba(14,20,32,.45)}
+dialog h3{font:700 22px/1.25 var(--font-content);margin:0 0 8px}
+dialog ul{padding-left:20px;margin:16px 0 24px}
+dialog li{margin-bottom:6px}
+dialog .actions{display:flex;gap:12px;justify-content:flex-end}
+
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+@media (max-width:1000px){
+  .layout{grid-template-columns:1fr}
+  .nav{position:static;flex-direction:row;flex-wrap:wrap}
+  .nav .sum{display:none}
+  .pickers{grid-template-columns:repeat(2,1fr)}
+  .part-body{grid-template-columns:1fr;padding-left:0}
+}
+@media (max-width:640px){
+  .grid2,.wq .line,.wq .line2{grid-template-columns:1fr}
+  .stage{padding:24px}
+  .top{flex-direction:column;align-items:flex-start}
+  .part-head{grid-template-columns:28px 80px 12px 80px 1fr 40px;gap:8px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>LESSON BUILDER</h1>
+      <p>Fill in the lesson once. The builder creates the Divi draft, the flashcard sets, the comprehension tables and the glossary.</p>
+    </div>
+    <div class="actions">
+      <button class="btn" id="loadSample" type="button">Load sample lesson</button>
+      <button class="btn ghost" id="clearAll" type="button">Clear</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="nav" aria-label="Lesson stages">
+      <a href="#s-basics"><span class="dot" data-for="basics">✓</span>Basics</a>
+      <a href="#s-images"><span class="dot" data-for="images">✓</span>Images</a>
+      <a href="#s-warmup"><span class="dot" data-for="warmup">✓</span>Warm-up</a>
+      <a href="#s-video"><span class="dot" data-for="video">✓</span>Video parts</a>
+      <a href="#s-poll"><span class="dot" data-for="poll">✓</span>Poll</a>
+      <a href="#s-discussion"><span class="dot" data-for="discussion">✓</span>Discussion</a>
+      <a href="#s-glossary"><span class="dot" data-for="glossary">✓</span>Glossary</a>
+      <div class="sum" id="navSum"></div>
+    </nav>
+
+    <main class="stages">
+
+      <!-- BASICS -->
+      <section class="stage" id="s-basics">
+        <h2>Basics</h2>
+        <p class="lead">What the lesson is called, where it lives, and which header set it wears.</p>
+        <div class="field">
+          <label for="title">Lesson title</label>
+          <input type="text" id="title" class="content" placeholder="How to Make Stress Your Friend | Kelly McGonigal | TED">
+        </div>
+        <div class="field">
+          <div class="row-between"><label for="excerpt">Excerpt</label><span class="hint" id="excerptCount">0 / 160</span></div>
+          <textarea id="excerpt" class="content" rows="2" style="min-height:72px" placeholder="Start with a question, then the promise."></textarea>
+        </div>
+        <div class="grid2">
+          <div class="field" style="grid-column:1/-1">
+            <span class="lbl" id="catLbl">Category <span class="hint">— also sets the headers, accent colour and category icon</span></span>
+            <div class="seg" role="group" aria-labelledby="catLbl" id="cat">
+              <button type="button" data-v="Man and Society" data-look="gi" data-icon="30080" aria-pressed="false"><span class="sw" style="background:var(--tbt-gi)"></span>Man and Society</button>
+              <button type="button" data-v="Personal Development" data-look="pd" data-icon="30091" aria-pressed="false"><span class="sw" style="background:var(--tbt-pd)"></span>Personal Development</button>
+            </div>
+          </div>
+          <input type="hidden" id="icon" value="">
+        </div>
+        <div class="grid2">
+          <div class="field">
+            <span class="lbl" id="lvlLbl">Level</span>
+            <div class="seg" role="group" aria-labelledby="lvlLbl" id="level">
+              <button type="button" data-v="30105" aria-pressed="false">A1</button>
+              <button type="button" data-v="30113" aria-pressed="false">A2</button>
+              <button type="button" data-v="30115" aria-pressed="false">B1</button>
+              <button type="button" data-v="30116" aria-pressed="false">B2</button>
+              <button type="button" data-v="30117" aria-pressed="false">C1</button>
+              <button type="button" data-v="30118" aria-pressed="false">C2</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="tags">Tags <span class="hint">— comma-separated</span></label>
+            <input type="text" id="tags" placeholder="stress, psychology, TED">
+          </div>
+        </div>
+      </section>
+
+      <!-- IMAGES -->
+      <section class="stage" id="s-images">
+        <h2>Images</h2>
+        <p class="lead">Each one opens the WordPress media library.</p>
+        <div class="pickers">
+          <button type="button" class="pick" data-img="featured">Featured image<small>Choose from Media</small></button>
+          <button type="button" class="pick" data-img="hero">Hero<small>Choose from Media</small></button>
+          <button type="button" class="pick" data-img="warmup">Warm-up<small>Choose from Media</small></button>
+          <button type="button" class="pick" data-img="poll">Poll<small>Choose from Media</small></button>
+        </div>
+      </section>
+
+      <!-- WARM-UP -->
+      <section class="stage" id="s-warmup">
+        <h2>Warm-up</h2>
+        <p class="lead">Three questions, each with one character’s answer and its recording. The answer becomes the transcript.</p>
+        <div id="warmups"></div>
+      </section>
+
+      <!-- VIDEO -->
+      <section class="stage" id="s-video">
+        <h2>Video parts</h2>
+        <p class="lead">Paste the video once, then give each part its start and end. The builder writes the embed code for every part. Leave a start empty and it continues from the previous part; type one to skip a stretch of the video.</p>
+        <div class="field">
+          <label for="yt">YouTube video <span class="hint">— the link or the whole embed code</span></label>
+          <input type="text" id="yt" placeholder="https://youtu.be/…  or  <iframe … >">
+          <span class="hint" id="ytInfo"></span>
+        </div>
+        <div class="field">
+          <div class="row-between"><label for="qa">Comprehension questions</label><span class="hint">Paste three columns from Excel: time, question, answer</span></div>
+          <textarea id="qa" class="mono" rows="6" placeholder="0:22&#9;How does she want to engage with the audience?&#9;She wants the audience to…"></textarea>
+        </div>
+
+        <div class="timeline" aria-hidden="true">
+          <div class="tl-bar" id="tlBar"><span class="tl-empty">Add a part to see the timeline</span></div>
+          <div class="tl-scale"><span id="tlStart">0:00</span><span id="tlEnd"></span></div>
+        </div>
+
+        <div class="parts" id="parts"></div>
+        <div class="addrow">
+          <button type="button" class="btn" id="addPart">Add part</button>
+          <span class="hint" id="partCount"></span>
+        </div>
+        <div id="videoNotice"></div>
+      </section>
+
+      <!-- POLL -->
+      <section class="stage" id="s-poll">
+        <h2>Poll</h2>
+        <p class="lead">Paste the three questions from Word, each followed by its four answers (A–D). The builder makes the poll, and students earn points for voting.</p>
+        <div class="field">
+          <div class="row-between"><label for="poll">Poll questions</label><span class="hint" id="pollCount">3 questions, 4 answers each</span></div>
+          <textarea id="poll" class="content" rows="8" placeholder="Which insight about stress do you find most surprising?&#10;A. …&#10;B. …&#10;C. …&#10;D. …"></textarea>
+        </div>
+        <div id="pollPreview"></div>
+      </section>
+
+      <!-- DISCUSSION -->
+      <section class="stage" id="s-discussion">
+        <h2>Discussion</h2>
+        <p class="lead">Use **double asterisks** for bold, as in your Word document.</p>
+        <div class="field">
+          <label for="scenario">Role-play scenario</label>
+          <textarea id="scenario" class="content" rows="2" style="min-height:72px" placeholder="Alita and Pete are catching up over coffee…"></textarea>
+        </div>
+        <div class="field">
+          <div class="row-between"><label for="dialogue">Dialogue</label><span class="hint" id="dlgCount">One line per turn: Name: text</span></div>
+          <textarea id="dialogue" class="content" rows="8" placeholder="Alita: You look surprisingly relaxed…&#10;Pete: Honestly, I’ve **changed my mind** about it."></textarea>
+        </div>
+        <div class="field">
+          <div class="row-between"><label for="dq">Discussion questions</label><span class="hint" id="dqCount">One per line</span></div>
+          <textarea id="dq" class="content" rows="5" placeholder="**Many people believe** that avoiding stressful situations…"></textarea>
+        </div>
+        <div class="field">
+          <label for="mindmap">Mindomo map link</label>
+          <input type="url" id="mindmap" placeholder="https://www.mindomo.com/mindmap/…">
+        </div>
+      </section>
+
+      <!-- GLOSSARY -->
+      <section class="stage" id="s-glossary">
+        <h2>Glossary</h2>
+        <p class="lead">Built from the flashcards in every part. Nothing to type here.</p>
+        <div id="glossary"></div>
+      </section>
+
+      <!-- FINISH -->
+      <section class="stage">
+        <div class="finish">
+          <ul id="checklist"></ul>
+          <button type="button" class="btn primary" id="create" disabled>Create draft</button>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<dialog id="done">
+  <h3>Draft created</h3>
+  <p id="doneTitle" style="margin:0;color:var(--muted)"></p>
+  <ul id="doneList"></ul>
+  <div class="actions">
+    <button class="btn" type="button" id="closeDone">Back to the form</button>
+    <button class="btn primary" type="button" id="openDivi">Open in Divi</button>
+  </div>
+</dialog>
+
+<script>
+const SAMPLE = {"title": "How to Make Stress Your Friend | Kelly McGonigal | TED", "excerpt": "What if stress wasn’t your enemy? Discover how changing your view of stress could transform your health and life.", "tags": "stress, psychology, health, TED", "warmup": [{"q": "Why do most people automatically assume that stress is always bad for their health?", "who": "Sven", "a": "For decades, the message from health experts has been clear — stress kills. That idea has been repeated so often that most people accept it without question. When you constantly hear that stress causes heart disease and burnout, it's natural to see every stressful moment as a threat. I think the problem is that this oversimplified message ignores important nuances about how the body actually responds to different types of pressure."}, {"q": "What role does mindset play in how people handle pressure and difficult situations?", "who": "Pete", "a": "Mindset is probably more powerful than most people realise. Two people can face the same challenge and respond completely differently depending on how they interpret the situation. If you see pressure as a sign that something matters to you, it becomes energising rather than paralysing. I've always believed that difficulties are easier to handle when you view them as opportunities to grow rather than threats to survive."}, {"q": "How do you typically react when you feel stressed — do you withdraw, seek support, or try to push through on your own?", "who": "Alita", "a": "It depends on the situation, but I've noticed that my first instinct is usually to withdraw and try to manage everything on my own. I tend to go quiet and overthink things, which doesn't always help. Over the past year, though, I've been making more of an effort to talk to friends when I'm feeling overwhelmed. I've realised that just saying things out loud often makes problems feel smaller and more manageable."}], "yt": "https://youtu.be/RcGyVTAoXEU", "qa": "0:22\tHow does she want to engage with the audience?\tShe wants the audience to make a small confession to her by raising their hands.\n0:40\tWhat confession does she want the audience to make?\tShe wants them to admit how much stress they experienced in the past year — little, moderate, or a lot.\n1:00\tWhat confession does she make?\tShe admits that as a health psychologist, something she has been teaching for ten years may be doing more harm than good.\n1:20\tWhat did she change her mind about?\tShe changed her mind about stress. She used to demonise it, but now she sees it differently.\n1:25\tWhat effect did the study have on her?\tIt made her rethink her whole approach to stress.\n1:43\tWhat two questions did the researchers ask the participants?\tThey asked how much stress people had experienced in the last year and whether they believed stress was harmful to their health.\n2:08\tWhich group of people had an increased risk of dying?\tPeople who experienced a lot of stress and also believed that stress was harmful had a 43% increased risk of dying.\n2:24\tWho had the lowest risk of dying?\tPeople who experienced a lot of stress but did not view stress as harmful.\n2:37\tWhat estimate did the researchers make?\tThey estimated that over eight years, 182,000 Americans died prematurely — not from stress itself, but from the belief that stress is bad for them.\n2:55\tIf the estimate was correct, what would be the 15th largest cause of death in the US?\tBelieving that stress is bad for you — killing more people than skin cancer, HIV/AIDS, and homicide.\n3:08\tWhy did the study freak her out?\tBecause she had spent years telling people that stress was bad for their health, and the study suggested that message might itself be harmful.\n3:21\tWhat does the science agree on?\tThat changing how you think about stress can change your body's response to stress.\n3:32\tWhat activity does she want the audience to take part in?\tShe wants them to imagine they are participants in a study called the social stress test.\n3:51\tHow is the test supposed to make you feel?\tIt is supposed to make you feel stressed and under pressure — you have to give a five-minute impromptu speech on your personal weaknesses.\n4:07\tWhat were the evaluators trained to do?\tThey were trained to give discouraging, non-verbal feedback to the participants.\n4:19\tWhat is unknown to the participants of the test?\tThat the experimenter has been trained to harass them during the second part of the test — a math task.\n4:39\tWhat was the audience instructed to do?\tThey were told to count backwards from 996 in increments of seven, out loud and as fast as possible.\n4:54\tHow did she make them feel?\tA bit stressed out — the activity put them under pressure in a playful way.\n5:04\tWhat physical changes do we usually experience when under pressure?\tOur heart starts pounding, we breathe faster, and we may start sweating.\n5:12\tHow do we tend to interpret these changes?\tWe usually interpret them as anxiety or as signs that we are not coping with the pressure.\n5:20\tHow could we view them instead?\tAs signs that the body is energised and preparing us to meet a challenge.\n5:40\tWhat were the participants of the study told to do?\tThey were taught to rethink their stress response as something helpful — for example, a pounding heart preparing them for action.\n5:55\tHow did the participants who viewed stress as helpful feel?\tThey were less stressed out, less anxious, and more confident.\n6:04\tWhat is a typical stress response?\tYour heart rate goes up and your blood vessels constrict.\n6:12\tWhat toll could chronic stress have on you?\tIt can lead to cardiovascular disease because the body stays in this constricted state too often.\n6:32\tHow did the group of participants who viewed stress as helpful respond physically?\tTheir blood vessels stayed relaxed, even though their hearts were still pounding — a much healthier cardiovascular profile.\n6:52\tWhat does the new science of stress reveal?\tThat how you think about stress really matters and can change how your body responds to it.\n7:00\tHow did her goal change as a psychologist?\tShe no longer wants to get rid of people's stress — she wants to make them better at handling it.\n7:08\tWhat could have saved the lives of those who experience lots of stress?\tLearning to see their stress response as the body helping them rise to a challenge.\n7:28\tOn what condition does our stress response become healthier?\tWhen we view stress as helpful rather than harmful — when the body \"believes\" us, the response itself changes.\n7:36\tWhat does she say she has to redeem herself from?\tOver a decade of demonising stress.\n7:48\tWhat is one of the most under-appreciated aspects of stress?\tThat stress makes you social — it pushes you to connect with other people.\n8:04\tWhat nickname did oxytocin get?\tThe cuddle hormone, because it is released when you hug someone.\n8:32\tWhat does oxytocin prime us to do?\tIt primes us to do things that strengthen close relationships, like crave physical contact and support the people we care about.\n8:41\tWhat do some people suggest we should be doing?\tSome people have suggested we should snort oxytocin to become more compassionate and caring.\n9:01\tWhat don't most people understand about oxytocin?\tThat it is also a stress hormone — released by the pituitary gland as part of the stress response.\n9:15\tWhat motivates us to seek support?\tOxytocin — it nudges us to tell someone how we feel instead of bottling it up.\n9:32\tHow does the stress response influence our relationships?\tIt makes us notice when someone close is struggling and encourages us to support each other.\n9:55\tWhat are some of the main roles of oxytocin?\tIt strengthens close relationships and protects the cardiovascular system from the effects of stress.\n10:14\tWhat effects does this hormone have on the heart?\tIt helps heart cells regenerate and heal from stress-induced damage, which strengthens the heart.\n10:36\tUnder what circumstances do we release more oxytocin?\tWhen we reach out to others under stress — either to seek support or to help someone else.\n10:49\tWhat is a built-in mechanism we have for stress resilience?\tHuman connection — reaching out to others.\n10:57\tWhat study does she want to share next?\tA study that tracked about 1,000 adults in the United States for five years.\n11:20\tWhat two questions did the researchers ask the participants?\tHow much stress they had experienced in the last year, and how much time they had spent helping out friends, neighbours, and people in their community.\n11:39\tWhat's the bad news?\tEvery major stressful life experience — like financial difficulties or a family crisis — increased the risk of dying by 30%.\n11:59\tWhat's the good news?\tPeople who spent time caring for others showed no stress-related increase in dying at all.\n12:20\tAre the harmful effects of stress inevitable?\tNo — how you think and how you act can transform your experience of stress.\n12:28\tHow can we create better stress resilience?\tBy viewing the stress response as helpful and by connecting with others when we are under stress.\n12:40\tWhat did the science of stress do for her?\tIt gave her a whole new appreciation for stress.\n12:58\tWhat aspects of stress can we appreciate?\tThat stress gives us access to our hearts — both the compassionate heart that connects with others and the physical heart that gives us strength and energy.\n13:26\tWhat profound statement do we make?\tThat we trust ourselves to handle life's challenges and that we don't have to face them alone.\n13:42\tWhat is he amazed by?\tThat a belief about stress can make such a big difference to someone's life expectancy.\n14:00\tWhat does he want to get her advice on?\tWhether someone should choose a stressful job or a non-stressful job when making a lifestyle choice.\n14:28\tWhat are the final words of encouragement from Kelly?\tChase meaning rather than try to avoid discomfort, and trust yourself to handle the stress that follows.", "fc": ["Make a confession,/meɪk ə kənˈfeʃən/,wyznać coś,She decided to make a confession to her manager about the missed deadline.\nExperience stress,/ɪkˈspɪəriəns stres/,doświadczać stresu,Most professionals experience stress before an important presentation.\nDo more harm than good,/duː mɔː hɑːm ðən ɡʊd/,wyrządzić więcej szkody niż pożytku,Giving feedback in front of the whole team can do more harm than good.\nIncrease the risk of a disease,/ɪnˈkriːs ðə rɪsk əv ə dɪˈziːz/,zwiększać ryzyko choroby,A poor diet and lack of exercise can increase the risk of a disease.\nChange your mind,/tʃeɪndʒ jɔː maɪnd/,zmienić zdanie,He was sure about the offer but changed his mind after talking to his family.", "Die prematurely,/daɪ ˌpriːməˈtʃʊəli/,umrzeć przedwcześnie,Many people in his family died prematurely because of heart problems.\nMake an estimate,/meɪk ən ˈestɪmət/,oszacować,Could you make an estimate of how long the project will take?\nFreak out,/friːk aʊt/,wpaść w panikę,She freaked out when she realised she had sent the email to the wrong client.", "Stress somebody out,/stres ˈsʌmbədi aʊt/,stresować kogoś,Tight deadlines really stress him out, especially at the end of the quarter.\nImpromptu speech,/ɪmˈprɒmptjuː spiːtʃ/,improwizowane przemówienie,He had to give an impromptu speech at the conference when the main speaker fell ill.\nDiscouraging feedback,/dɪsˈkʌrɪdʒɪŋ ˈfiːdbæk/,zniechęcająca informacja zwrotna,Discouraging feedback can make even experienced employees lose confidence.", "Stress response,/stres rɪˈspɒns/,reakcja na stres,The body's stress response prepares us to act quickly in difficult situations.\nPounding heart,/ˈpaʊndɪŋ hɑːt/,walące serce,She walked into the interview with a pounding heart and sweaty palms.\nAnxiety,/æŋˈzaɪəti/,niepokój,Public speaking causes anxiety for many otherwise confident professionals.\nCope with the pressure,/kəʊp wɪð ðə ˈpreʃə/,radzić sobie z presją,New managers often struggle to cope with the pressure of leading a team.\nEnergised,/ˈenədʒaɪzd/,pełen energii,She always feels energised after a short walk during her lunch break.\nConduct a study,/kənˈdʌkt ə ˈstʌdi/,przeprowadzić badanie,Researchers at the university conducted a study on remote work and productivity.\nHeart rate,/hɑːt reɪt/,tętno,Regular exercise can lower your resting heart rate over time.\nChronic stress,/ˈkrɒnɪk stres/,przewlekły stres,Chronic stress at work can affect both physical and mental health.\nCardiovascular disease,/ˌkɑːdiəʊˈvæskjʊlə dɪˈziːz/,choroba układu krążenia,Cardiovascular disease remains one of the leading causes of death worldwide.\nFascinating finding,/ˈfæsɪneɪtɪŋ ˈfaɪndɪŋ/,fascynujące odkrycie,The report contained a fascinating finding about how people make decisions under time pressure.\nGet rid of,/ɡet rɪd əv/,pozbyć się,The new manager wanted to get rid of unnecessary meetings.\nRise to a challenge,/raɪz tuː ə ˈtʃælɪndʒ/,sprostać wyzwaniu,She always rises to a challenge when her team needs her most.", "Demonise,/ˈdiːmənaɪz/,demonizować,The media often demonises certain industries without presenting the full picture.\nRedeem yourself,/rɪˈdiːm jɔːˈself/,zrehabilitować się,After missing the deadline, he redeemed himself by delivering an excellent report.\nUnder-appreciated aspect,/ˌʌndərəˈpriːʃieɪtɪd ˈæspekt/,niedoceniany aspekt,Active listening is an under-appreciated aspect of good leadership.\nGet a lot of hype,/ɡet ə lɒt əv haɪp/,być na fali popularności,The new productivity app got a lot of hype but turned out to be quite limited.\nFine-tune,/ˌfaɪnˈtjuːn/,dopracowywać,She spent the morning fine-tuning her presentation before the big meeting.\nPrime somebody to do something,/praɪm ˈsʌmbədi tuː duː ˈsʌmθɪŋ/,nastawiać kogoś do zrobienia czegoś,A short introduction can prime the audience to engage more actively.\nStrengthen a relationship,/ˈstreŋθən ə rɪˈleɪʃənʃɪp/,wzmacniać relację,Regular one-to-one meetings can strengthen a relationship between a manager and their team.\nCrave,/kreɪv/,pragnąć,After a long week at work, many people crave a quiet weekend at home.\nEnhance,/ɪnˈhɑːns/,wzmacniać,A short coffee break can enhance focus during a long working day.\nSeek support,/siːk səˈpɔːt/,szukać wsparcia,New employees should not hesitate to seek support from more experienced colleagues.\nNudge somebody to do something,/nʌdʒ ˈsʌmbədi tuː duː ˈsʌmθɪŋ/,zachęcać kogoś do zrobienia czegoś,A friendly reminder can nudge people to complete their training on time.\nBottle something up,/ˈbɒtl ˈsʌmθɪŋ ʌp/,tłumić coś w sobie,It is not healthy to bottle up your frustrations at work for too long.\nReach out to,/riːtʃ aʊt tuː/,zwrócić się do,If you have any questions, feel free to reach out to me at any time.\nResilience,/rɪˈzɪliəns/,odporność psychiczna,Resilience is one of the most valuable qualities in a changing workplace.", "Help out,/help aʊt/,pomagać,She always helps out her colleagues when they are close to a deadline.\nHarmful effects,/ˈhɑːmfʊl ɪˈfekts/,szkodliwe skutki,Many people underestimate the harmful effects of sitting for too long at work.\nInevitable,/ɪˈnevɪtəbl/,nieunikniony,Some level of conflict is inevitable in any team that works closely together.\nCourage,/ˈkʌrɪdʒ/,odwaga,It takes courage to admit a mistake in front of your manager.\nCompassionate,/kəmˈpæʃənət/,współczujący,A compassionate leader pays attention to how their team members really feel.\nProfound,/prəˈfaʊnd/,głęboki,The pandemic had a profound impact on the way we think about work.\nHandle stress,/ˈhændl stres/,radzić sobie ze stresem,Learning to handle stress is essential in any demanding profession.\nFace challenges,/feɪs ˈtʃælɪndʒɪz/,stawiać czoła wyzwaniom,Small companies often face challenges that larger firms never have to deal with.", "Make a difference,/meɪk ə ˈdɪfrəns/,robić różnicę,Even small acts of kindness can make a difference in the workplace.\nLife expectancy,/laɪf ɪkˈspektənsi/,oczekiwana długość życia,Life expectancy has risen steadily in most developed countries over the last century.\nLifestyle choice,/ˈlaɪfstaɪl tʃɔɪs/,wybór stylu życia,Working from home is a lifestyle choice that suits some people better than others.\nAvoid discomfort,/əˈvɔɪd dɪsˈkʌmfət/,unikać dyskomfortu,People who always avoid discomfort rarely grow in their careers."], "parts": [["Opening", "1:20"], ["The 30,000-adult study", "3:08"], ["The social stress test", "4:54"], ["The biology of courage", "7:28"], ["Oxytocin and the social side of stress", "10:49"], ["The caring study and closing message", "13:26"], ["Q&A with Chris Anderson", "14:28"]], "poll": "233", "scenario": "Alita and Pete are catching up over coffee on a Friday afternoon. Alita has just finished a demanding week and is curious about a podcast Pete recently listened to.", "dialogue": "Alita: You look surprisingly relaxed for someone who had three big presentations this week. How do you **handle stress** so well these days?\nPete: Honestly, I've **changed my mind** about it. I used to think stress was something I had to **get rid of**, but I listened to a podcast that completely shifted my perspective.\nAlita: That sounds intriguing. What did it say?\nPete: Well, the speaker made a kind of **confession** — for years she had been telling people that stress **does more harm than good** and even **increases the risk of a disease**. But then a big study made her **rethink her whole approach**.\nAlita: Really? So stress isn't always the enemy?\nPete: Not exactly. The study showed that people who **experience stress** but don't believe it's harmful actually have the lowest risk of dying. The belief itself matters more than the stress.\nAlita: That's a **fascinating finding**. So when my heart starts pounding before a meeting, I shouldn't **freak out** about it?\nPete: Exactly. You can view it as your body preparing you to **rise to the challenge**. Apparently, when you see your **stress response** as helpful, even your blood vessels stay more relaxed.\nAlita: That's quite a **profound** idea. So what do you actually do differently now?\nPete: Two things. First, I try to feel **energised** by the pressure instead of anxious. And second — this surprised me — I **reach out to** others more often. The speaker said connection is a built-in mechanism for **resilience**.\nAlita: Interesting. So instead of **bottling it up**, you talk to someone.\nPete: Right. And helping others when you're stressed seems to work even better than just **seeking support** for yourself.\nAlita: That's a really **compassionate** way to look at it. Maybe the goal isn't a stress-free life, but learning to **face challenges** without fearing them.\nPete: Exactly. **Chase meaning** instead of trying to **avoid discomfort** — that's the takeaway I keep coming back to.", "dq": "**Many people believe** that avoiding stressful situations leads to a happier life. Why might this approach actually be harmful in the long run?\n**What's best** when facing a difficult challenge — focusing on calming the body down or accepting the physical signs of stress as helpful?\n**Advise** someone who tends to bottle up their emotions instead of reaching out to others when under pressure.\n**Why** do some people find it easier to help others under stress than to ask for support themselves?\n**Many people believe** that a stress-free job is always the better choice. What's the strongest argument for choosing a meaningful but more stressful path?", "mindmap": "https://www.mindomo.com/mindmap/make-stress-your-friend-e1921c8194a444e9815aac9b1cceaef6"};
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const ORD = ['one','two','three','four','five','six','seven','eight','nine','ten'];
+const HEAD = {
+  gi:{parts:[365477,365476,365475,365474,365473,365472,365471,365470,365469,365468]},
+  pd:{parts:[365565,365566,365567,365568,365569,365570,365571,365572,367473,370906]}
+};
+const MAX_PARTS = 10;
+let parts = [];            // {title, end, cards}
+const images = {};
+const audio = {};
+
+/* ---------- time helpers ---------- */
+function parseTime(s){
+  s = String(s||'').trim();
+  if(!s) return null;
+  if(/^\d+$/.test(s)) return +s;
+  const p = s.split(':').map(x=>x.trim());
+  if(p.some(x=>!/^\d+$/.test(x))) return null;
+  if(p.length===2) return (+p[0])*60 + (+p[1]);
+  if(p.length===3) return (+p[0])*3600 + (+p[1])*60 + (+p[2]);
+  return null;
+}
+function fmt(sec){
+  if(sec==null||isNaN(sec)) return '';
+  const h=Math.floor(sec/3600), m=Math.floor(sec%3600/60), s=sec%60;
+  return h ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
+}
+
+/* ---------- parsers ---------- */
+function parseQA(text){
+  const out=[];
+  text.split(/\r?\n/).forEach(line=>{
+    if(!line.trim()) return;
+    let cols = line.split('\t');
+    if(cols.length<2) cols = line.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(c=>c.replace(/^"|"$/g,''));
+    const t = parseTime(cols[0]);
+    if(t==null) return; // header or junk row
+    out.push({t, q:(cols[1]||'').trim(), a:(cols[2]||'').trim()});
+  });
+  return out.sort((a,b)=>a.t-b.t);
+}
+function parseCards(text){
+  const out=[];
+  text.split(/\r?\n/).forEach(line=>{
+    if(!line.trim()) return;
+    const cols = line.includes('\t') ? line.split('\t')
+      : line.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(c=>c.trim().replace(/^"|"$/g,'').replace(/""/g,'"'));
+    if(/^word$/i.test((cols[0]||'').trim())) return; // header
+    out.push({word:(cols[0]||'').trim(), phon:(cols[1]||'').trim(), tr:(cols[2]||'').trim(), ex:(cols[3]||'').trim()});
+  });
+  return out.filter(c=>c.word);
+}
+function ytId(url){
+  const m = String(url).match(/(?:youtu\.be\/|v=|embed\/|shorts\/)([\w-]{11})/);
+  return m ? m[1] : null;
+}
+
+/* ---------- warm-up ---------- */
+const SPEAKERS = ['Alita','Pete','Sven','Kat'];
+function renderWarmups(){
+  const box=$('#warmups'); box.textContent='';
+  for(let i=1;i<=3;i++){
+    const el=document.createElement('div'); el.className='wq';
+    el.innerHTML = `
+      <span class="num">${i}</span>
+      <div>
+        <div class="line">
+          <input type="text" class="content" id="wq${i}" aria-label="Question ${i}" placeholder="Question ${i}">
+          <select id="ws${i}" aria-label="Who answers question ${i}">${SPEAKERS.map(s=>`<option>${s}</option>`).join('')}</select>
+        </div>
+        <div class="line2">
+          <textarea class="content" id="wa${i}" aria-label="Answer ${i}" placeholder="The character’s answer, which also becomes the transcript"></textarea>
+          <button type="button" class="mp3" data-audio="${i}">Generate audio</button>
+        </div>
+      </div>`;
+    box.appendChild(el);
+  }
+  $$('[data-audio]').forEach(b=>b.addEventListener('click',()=>{
+    const i=b.dataset.audio;
+    if(!$(`#wa${i}`).value.trim()){ b.textContent='Write the answer first'; setTimeout(paintAudio,1400); return; }
+    b.disabled=true; b.textContent=`Generating in ${$(`#ws${i}`).value}’s voice…`;
+    setTimeout(()=>{ b.disabled=false; audio[i]=`Q${i}-${slug($('#title').value)||'lesson'}.mp3`; paintAudio(); refresh(); },900);
+  }));
+  [1,2,3].forEach(i=>{
+    const stale=()=>{ if(audio[i]){ delete audio[i]; paintAudio(); refresh(); } };
+    $(`#wa${i}`).addEventListener('input',stale); $(`#ws${i}`).addEventListener('change',stale);
+  });
+}
+function paintAudio(){
+  $$('[data-audio]').forEach(b=>{
+    const i=b.dataset.audio, f=audio[i];
+    b.classList.toggle('set',!!f);
+    b.textContent = f ? `▶ Listen (${$(`#ws${i}`).value}) · click to regenerate` : `Generate audio in ${$(`#ws${i}`).value}’s voice`;
+  });
+}
+function slug(s){return String(s).toLowerCase().split('|')[0].normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');}
+
+/* ---------- parts ---------- */
+function look(){ const b=$('#cat [aria-pressed="true"]'); return b?b.dataset.look:'gi'; }
+
+function renderParts(){
+  const box=$('#parts'); box.textContent='';
+  parts.forEach((p,i)=>{
+    const el=document.createElement('div'); el.className='part'; el.dataset.i=i;
+    el.innerHTML = `
+      <div class="part-head">
+        <span class="num">${i+1}</span>
+        <input type="text" class="time" data-k="start" aria-label="Part ${i+1} start" inputmode="numeric">
+        <span class="dash">–</span>
+        <input type="text" class="time" data-k="end" aria-label="Part ${i+1} end" placeholder="end">
+        <span></span>
+        <button type="button" class="iconbtn" data-del aria-label="Remove part ${i+1}" title="Remove part">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
+        </button>
+      </div>
+      <div class="part-body">
+        <div>
+          <div class="row-between"><label class="lbl" style="font-weight:600;font-size:15px" for="c${i}">Flashcards</label></div>
+          <textarea id="c${i}" class="mono" data-k="cards" rows="5" placeholder="word,phonetic,translation,example&#10;or just the words, one per line"></textarea>
+          <div class="chips" data-chips="cards"></div>
+          <button type="button" class="btn small" data-fill style="margin-top:10px">Fill with AI</button>
+        </div>
+        <div>
+          <span class="lbl" style="font-weight:600;font-size:15px">Comprehension questions</span>
+          <ul class="qlist" data-q></ul>
+          <div class="chips" data-chips="q"></div>
+        </div>
+        <details class="embed"><summary>Embed code the builder will write</summary><pre data-embed></pre></details>
+      </div>`;
+    el.querySelector('[data-k="start"]').value=p.start||'';
+    el.querySelector('[data-k="end"]').value=p.end||'';
+    el.querySelector('[data-k="cards"]').value=p.cards||'';
+    el.addEventListener('input',e=>{
+      const k=e.target.dataset.k; if(!k) return;
+      parts[i][k]=e.target.value; refresh();
+    });
+    el.querySelector('[data-del]').addEventListener('click',()=>{ parts.splice(i,1); renderParts(); refresh(); });
+    el.querySelector('[data-fill]').addEventListener('click',e=>{
+      const btn=e.currentTarget; btn.disabled=true; btn.textContent='Filling…';
+      setTimeout(()=>{
+        const lines=parseCards(parts[i].cards||'').map(c=>[c.word,c.phon||'/…/',c.tr||'(AI translation)',c.ex||`(AI example with “${c.word}”)`].map(v=>/[",]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v).join(','));
+        parts[i].cards=lines.join('\n'); el.querySelector('[data-k="cards"]').value=parts[i].cards;
+        btn.textContent='Fill with AI'; refresh();
+      },900);
+    });
+    box.appendChild(el);
+  });
+  $('#addPart').disabled = parts.length>=MAX_PARTS;
+  $('#partCount').textContent = parts.length ? `${parts.length} of ${MAX_PARTS} parts` : 'Lessons have 1–10 parts';
+}
+
+function computeParts(){
+  let prevEnd=null; const res=[];
+  parts.forEach((p,i)=>{
+    const auto = i===0 ? 0 : prevEnd;
+    const start = parseTime(p.start) ?? auto;
+    const end = parseTime(p.end);
+    let err='';
+    if((p.start||'').trim() && parseTime(p.start)==null) err='Use minutes:seconds, e.g. 3:08';
+    else if(start==null) err='Enter the start';
+    else if(end==null) err = (p.end||'').trim() ? 'Use minutes:seconds, e.g. 3:08' : '';
+    else if(end<=start) err='End must be after the start';
+    else if(prevEnd!=null && start<prevEnd) err='Overlaps the previous part';
+    res.push({start,end,autoStart:auto,bad:!!err||end==null||start==null,err});
+    if(!err && end!=null && start!=null) prevEnd=end;
+  });
+  return res;
+}
+function embedCode(id,r){
+  return `<iframe width="1080" height="615" src="https://www.youtube.com/embed/${id}?start=${r.start}&end=${r.end}" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`;
+}
+
+function refreshVideo(){
+  const raw=$('#yt').value.trim(); const id=ytId(raw);
+  $('#ytInfo').textContent = raw ? (id ? `Video ID ${id}${/<iframe/i.test(raw)?', taken from the embed code':''}` : 'This doesn’t look like a YouTube link or embed code') : '';
+  $('#ytInfo').style.color = raw && !id ? 'var(--error)' : '';
+
+  const ranges=computeParts();
+  const qa=parseQA($('#qa').value);
+  const good=ranges.filter(r=>!r.bad);
+  const startAll=good.length?Math.min(...good.map(r=>r.start)):0;
+  const endAll=good.length?Math.max(...good.map(r=>r.end)):null;
+
+  // assign questions: first part whose range holds the timestamp (a shared boundary goes to the earlier part)
+  const buckets=parts.map(()=>[]); const outside=[];
+  qa.forEach(item=>{
+    const idx=ranges.findIndex(r=>!r.bad && item.t>=r.start && item.t<=r.end);
+    if(idx<0) outside.push(item); else buckets[idx].push(item);
+  });
+
+  // part cards
+  $$('#parts .part').forEach((el,i)=>{
+    const r=ranges[i];
+    el.querySelector('[data-k="start"]').placeholder = r.autoStart!=null ? fmt(r.autoStart) : 'start';
+    el.querySelector('[data-k="end"]').style.borderColor = r.err ? 'var(--error)' : '';
+    el.querySelector('[data-embed]').textContent = (id && !r.bad) ? embedCode(id,r) : 'Appears once the video and this part’s times are in.';
+    const ql=el.querySelector('[data-q]'); ql.textContent='';
+    if(!buckets[i].length){ const li=document.createElement('li'); li.innerHTML='<span class="empty">No questions in this part yet</span>'; ql.appendChild(li); }
+    buckets[i].forEach(q=>{
+      const li=document.createElement('li');
+      const t=document.createElement('span'); t.className='t'; t.textContent=fmt(q.t);
+      const s=document.createElement('span'); s.textContent=q.q;
+      li.append(t,s); ql.appendChild(li);
+    });
+    const qc=el.querySelector('[data-chips="q"]'); qc.textContent='';
+    qc.append(chip(buckets[i].length ? `${buckets[i].length} questions` : 'No questions', buckets[i].length?'ok':'warn'));
+    const noHint=buckets[i].filter(q=>!q.a).length;
+    if(noHint) qc.append(chip(`${noHint} without a hint`,'warn'));
+    const cards=parseCards(parts[i].cards||'');
+    const cc=el.querySelector('[data-chips="cards"]'); cc.textContent='';
+    cc.append(chip(cards.length?`${cards.length} cards`:'No cards', cards.length?'ok':'warn'));
+    const needAI=cards.filter(c=>!c.phon||!c.tr||!c.ex).length;
+    if(needAI) cc.append(chip(`${needAI} to fill with AI`,'warn'));
+    el.querySelector('[data-fill]').disabled = !needAI;
+    if(r.err) cc.append(chip(r.err,'err'));
+  });
+
+  // timeline
+  const bar=$('#tlBar'); bar.textContent='';
+  if(!parts.length || !good.length){
+    const e=document.createElement('span'); e.className='tl-empty';
+    e.textContent = parts.length ? 'Enter where each part ends' : 'Add a part to see the timeline';
+    bar.appendChild(e);
+  } else {
+    const total=endAll-startAll;
+    ranges.forEach((r,i)=>{
+      if(r.bad) return;
+      const seg=document.createElement('div'); seg.className='tl-seg '+(i%2?'even':'odd');
+      seg.style.left=`${(r.start-startAll)/total*100}%`;
+      seg.style.width=`${(r.end-r.start)/total*100}%`;
+      seg.textContent=i+1;
+      buckets[i].forEach(q=>{
+        const tk=document.createElement('span'); tk.className='tl-tick';
+        tk.style.left=`${(q.t-r.start)/(r.end-r.start)*100}%`;
+        seg.appendChild(tk);
+      });
+      bar.appendChild(seg);
+    });
+  }
+  $('#tlStart').textContent=fmt(startAll);
+  $('#tlEnd').textContent=endAll!=null?fmt(endAll):'';
+
+  const n=$('#videoNotice'); n.textContent='';
+  if(outside.length && parts.length){
+    const d=document.createElement('div'); d.className='notice err';
+    d.textContent = `${outside.length} question${outside.length>1?'s fall':' falls'} outside every part (${outside.slice(0,3).map(q=>fmt(q.t)).join(', ')}${outside.length>3?'…':''}). Check the part times, or remove questions from a skipped stretch.`;
+    n.appendChild(d);
+  }
+  return {ranges,buckets,outside,qa};
+}
+function chip(text,kind){const c=document.createElement('span');c.className='chip '+(kind||'');c.textContent=text;return c;}
+
+/* ---------- glossary ---------- */
+function refreshGlossary(){
+  const all=[]; const seen=new Set();
+  parts.forEach(p=>parseCards(p.cards||'').forEach(c=>{
+    const k=c.word.toLowerCase(); if(seen.has(k)) return; seen.add(k); all.push(c);
+  }));
+  const box=$('#glossary'); box.textContent='';
+  if(!all.length){
+    const e=document.createElement('div'); e.className='empty-box';
+    e.textContent='The glossary appears here once a part has flashcards.';
+    box.appendChild(e); return 0;
+  }
+  const wrap=document.createElement('div'); wrap.className='gloss-wrap';
+  const t=document.createElement('table'); t.className='gloss';
+  t.innerHTML='<thead><tr><th>Expression</th><th>Polish translation</th></tr></thead>';
+  const tb=document.createElement('tbody');
+  all.forEach(c=>{
+    const tr=document.createElement('tr');
+    const a=document.createElement('td'); a.textContent=c.word;
+    const b=document.createElement('td');
+    if(c.tr) b.textContent=c.tr; else { b.textContent='filled by AI'; b.className='miss'; }
+    tr.append(a,b); tb.appendChild(tr);
+  });
+  t.appendChild(tb); wrap.appendChild(t); box.appendChild(wrap);
+  const h=document.createElement('p'); h.className='hint'; h.style.margin='12px 0 0';
+  h.textContent=`${all.length} expressions, in the order they appear in the lesson.`;
+  box.appendChild(h);
+  return all.length;
+}
+
+/* ---------- poll ---------- */
+const POLL_SAMPLE = `After watching this video, which insight about stress do you find most surprising?
+A. That believing stress is harmful can be more dangerous than the stress itself.
+B. That viewing your stress response as helpful changes how your body actually reacts.
+C. That oxytocin is released as part of the stress response, not only when we hug someone.
+D. That caring for others can completely cancel out the harmful effects of stress.
+Which of Kelly McGonigal’s ideas do you think would help you the most?
+A. Treating a pounding heart as a sign that the body is preparing me for a challenge.
+B. Reaching out to others when I feel under pressure instead of bottling things up.
+C. Helping someone else when I’m stressed rather than focusing only on myself.
+D. Chasing meaning in life instead of trying to avoid every difficult situation.
+Which takeaway from this video are you most likely to apply at work?
+A. Reminding myself that my stress response is helping me rise to a challenge.
+B. Talking to a colleague when I feel overwhelmed instead of hiding the problem.
+C. Offering help to a teammate when I notice they are struggling under pressure.
+D. Choosing a meaningful project even if it brings more stress than an easier one.`;
+function parsePoll(text){
+  const qs=[];
+  text.split(/\r?\n/).forEach(l=>{
+    const s=l.trim().replace(/^\*\*|\*\*$/g,'').trim(); if(!s) return;
+    const m=s.match(/^([A-Da-d])[.)]\s*(.+)$/);
+    if(m){ if(!qs.length) qs.push({q:'',a:[]}); qs[qs.length-1].a.push(m[2].trim()); }
+    else qs.push({q:s,a:[]});
+  });
+  return qs;
+}
+function refreshPoll(){
+  const qs=parsePoll($('#poll').value);
+  const box=$('#pollPreview'); box.textContent='';
+  qs.forEach((q,i)=>{
+    const d=document.createElement('div'); d.className='pollq';
+    const n=document.createElement('span'); n.className='num'; n.textContent=i+1;
+    const body=document.createElement('div');
+    const h=document.createElement('h4'); h.textContent=q.q||'(question missing)';
+    const ol=document.createElement('ol');
+    q.a.forEach((a,j)=>{ const li=document.createElement('li'); const b=document.createElement('b'); b.textContent='ABCD'[j]||'?'; const s=document.createElement('span'); s.textContent=a; li.append(b,s); ol.appendChild(li); });
+    body.append(h,ol);
+    if(q.a.length!==4){ const c=document.createElement('div'); c.className='chips'; c.append(chip(`${q.a.length} answer${q.a.length===1?'':'s'}, needs 4`,'warn')); body.appendChild(c); }
+    d.append(n,body); box.appendChild(d);
+  });
+  const ok = qs.length===3 && qs.every(q=>q.q && q.a.length===4);
+  $('#pollCount').textContent = qs.length ? (ok ? '3 questions, ready' : `${qs.length} of 3 questions`) : '3 questions, 4 answers each';
+  $('#pollCount').style.color = qs.length && !ok ? 'var(--amber)' : '';
+  return {qs, ok, any: qs.length>0};
+}
+
+/* ---------- status ---------- */
+function setDot(key,state){ const d=$(`.dot[data-for="${key}"]`); d.classList.toggle('done',state==='done'); d.classList.toggle('part',state==='part'); }
+function lvl(){ const b=$('#level [aria-pressed="true"]'); return b?b.textContent:null; }
+function cats(){ const b=$('#cat [aria-pressed="true"]'); return b?[b.dataset.v]:[]; }
+
+function refresh(){
+  $('#excerptCount').textContent=`${$('#excerpt').value.length} / 160`;
+  $('#excerptCount').style.color=$('#excerpt').value.length>160?'var(--amber)':'';
+  const v=refreshVideo();
+  const gCount=refreshGlossary();
+  const dl=$('#dialogue').value.split('\n').filter(l=>l.trim()).length;
+  const dq=$('#dq').value.split('\n').filter(l=>l.trim()).length;
+  $('#dlgCount').textContent = dl ? `${dl} turns` : 'One line per turn: Name: text';
+  $('#dqCount').textContent = dq ? `${dq} questions` : 'One per line';
+
+  const basics=[!!$('#title').value.trim(),!!$('#excerpt').value.trim(),cats().length>0,!!lvl()];
+  const imgs=['featured','hero','warmup','poll'].map(k=>!!images[k]);
+  const wu=[1,2,3].map(i=>!!($(`#wq${i}`).value.trim()&&$(`#wa${i}`).value.trim()&&audio[i]));
+  const vid=[!!ytId($('#yt').value), parts.length>0, v.ranges.every(r=>!r.bad), v.qa.length>0 && !v.outside.length, parts.every(p=>{const c=parseCards(p.cards||''); return c.length && c.every(x=>x.phon&&x.tr&&x.ex);})];
+  const disc=[!!$('#scenario').value.trim(),dl>0,dq>0,/mindomo\.com/.test($('#mindmap').value)];
+  const st=a=>a.every(Boolean)?'done':(a.some(Boolean)?'part':'');
+  const P=refreshPoll();
+  const S={basics:st(basics),images:st(imgs),warmup:st(wu),video:st(vid),poll:P.ok?'done':(P.any?'part':''),discussion:st(disc),glossary:gCount?'done':''};
+  Object.entries(S).forEach(([k,s])=>setDot(k,s));
+
+  const items=[
+    ['Basics','basics'],['Images','images'],['Warm-up','warmup'],['Video parts','video'],['Poll','poll'],['Discussion','discussion']
+  ];
+  const ul=$('#checklist'); ul.textContent='';
+  items.forEach(([label,k])=>{
+    const li=document.createElement('li'); li.className=S[k]==='done'?'ok':'';
+    li.textContent = S[k]==='done' ? `${label} ready` : `${label} — still to fill in`;
+    ul.appendChild(li);
+  });
+  const ready=items.every(([,k])=>S[k]==='done');
+  $('#create').disabled=!ready;
+  const doneN=Object.values(S).filter(s=>s==='done').length;
+  $('#navSum').innerHTML=`<strong>${doneN} of 7</strong> stages ready`;
+}
+
+/* ---------- segmented ---------- */
+function seg(id,onChange){
+  $$(`#${id} button`).forEach(b=>b.addEventListener('click',()=>{
+    $$(`#${id} button`).forEach(x=>x.setAttribute('aria-pressed','false'));
+    b.setAttribute('aria-pressed','true'); onChange&&onChange(b.dataset.v); refresh();
+  }));
+}
+seg('cat',()=>{
+  const b=$('#cat [aria-pressed="true"]');
+  document.documentElement.style.setProperty('--look',b.dataset.look==='pd'?'var(--tbt-pd)':'var(--tbt-gi)');
+  $('#icon').value=b.dataset.icon;
+});
+seg('level');
+
+/* ---------- images ---------- */
+$$('.pick').forEach(b=>b.addEventListener('click',()=>{
+  const k=b.dataset.img;
+  if(images[k]) delete images[k]; else images[k]=`${slug($('#title').value)||'lesson'}-${k}.jpg`;
+  paintImages(); refresh();
+}));
+function paintImages(){
+  $$('.pick').forEach(b=>{
+    const k=b.dataset.img, f=images[k];
+    b.classList.toggle('set',!!f);
+    b.querySelector('small').textContent = f ? '✓ '+f : 'Choose from Media';
+  });
+}
+
+/* ---------- wiring ---------- */
+renderWarmups();
+renderParts();
+document.addEventListener('input',e=>{ if(!e.target.closest('.part')) refresh(); });
+document.addEventListener('change',e=>{ if(e.target.name==='cat') refresh(); });
+$('#addPart').addEventListener('click',()=>{
+  if(parts.length>=MAX_PARTS) return;
+  parts.push({title:'',end:'',cards:''}); renderParts(); refresh();
+  const last=$$('#parts .part').pop(); last&&last.querySelector('[data-k="end"]').focus();
+});
+
+$('#create').addEventListener('click',()=>{
+  const v=refreshVideo(); const L=look();
+  const cardsTotal=parts.reduce((n,p)=>n+parseCards(p.cards||'').length,0);
+  $('#doneTitle').textContent=$('#title').value;
+  const ul=$('#doneList'); ul.textContent='';
+  [
+    `Divi draft in ${cats()[0]}, level ${lvl()}, with ${L==='pd'?'Personal Development':'General Interest'} headers`,
+    `${parts.length} video parts cut from ${ytId($('#yt').value)}`,
+    `${parts.length} flashcard sets, ${cardsTotal} cards`,
+    `${v.qa.length} comprehension questions in ${parts.length} tables`,
+    `Glossary of ${$('#glossary tbody')?.children.length||0} expressions`,
+    `TBT poll with ${parsePoll($('#poll').value).length} questions, counted in Results and Points`,
+    `Featured image and excerpt set`
+  ].forEach(t=>{const li=document.createElement('li'); li.textContent=t; ul.appendChild(li);});
+  $('#done').showModal();
+});
+$('#closeDone').addEventListener('click',()=>$('#done').close());
+$('#openDivi').addEventListener('click',()=>$('#done').close());
+
+$('#clearAll').addEventListener('click',()=>{
+  $$('input[type=text],input[type=url],input[type=number],textarea').forEach(i=>{ i.value=''; });
+  $$('#cat button').forEach(b=>b.setAttribute('aria-pressed','false'));
+  document.documentElement.style.setProperty('--look','var(--tbt-gi)');
+  $$('#level button').forEach(b=>b.setAttribute('aria-pressed','false'));
+  Object.keys(images).forEach(k=>delete images[k]); Object.keys(audio).forEach(k=>delete audio[k]);
+  parts=[]; renderParts(); paintImages(); paintAudio(); refresh();
+});
+
+$('#loadSample').addEventListener('click',()=>{
+  const S=SAMPLE;
+  $('#title').value=S.title; $('#excerpt').value=S.excerpt; $('#tags').value=S.tags;
+  $('#cat [data-look="gi"]').click();
+  $('#level [data-v="30116"]').click();
+  $('#icon').value='30080';
+  ['featured','hero','warmup','poll'].forEach(k=>images[k]=`make-stress-your-friend-${k}.jpg`);
+  S.warmup.forEach((w,i)=>{ $(`#wq${i+1}`).value=w.q; $(`#ws${i+1}`).value=w.who; $(`#wa${i+1}`).value=w.a; audio[i+1]=`Q${i+1}-How-to-Make-Stress-Your-Friend.mp3`; });
+  $('#yt').value=S.yt; $('#qa').value=S.qa;
+  parts=S.parts.map((p,i)=>({title:p[0],start:'',end:p[1],cards:S.fc[i]||''}));
+  $('#poll').value=POLL_SAMPLE; $('#scenario').value=S.scenario; $('#dialogue').value=S.dialogue; $('#dq').value=S.dq; $('#mindmap').value=S.mindmap;
+  renderParts(); paintImages(); paintAudio(); refresh();
+});
+
+refresh();
+</script>
+</body>
+</html>
