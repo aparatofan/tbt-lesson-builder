@@ -1,0 +1,28 @@
+[et_pb_section fb_built="1" disabled_on="on|off|off" admin_label="WARMUP" module_id="warmup" _builder_version="4.16" custom_padding="20px||50px||false|false" collapsed="on" global_colors_info="{}"]{{HEADER_ROW}}[et_pb_row admin_label="INSTRUCTION" _builder_version="4.16" background_image="https://thebluetree.pl/wp-content/uploads/2020/01/paper.jpg" background_size="initial" background_repeat="repeat" border_radii="on|10px|10px|10px|10px" global_colors_info="{}"][et_pb_column type="4_4" _builder_version="4.16" global_colors_info="{}"][et_pb_text admin_label="Text" _builder_version="4.27.4" header_font="Roboto|700|||||||" header_text_color="#033f63" header_line_height="2em" custom_padding="|20px||20px|false|false" global_colors_info="{}"]<p>Answer the questions below. Listen to some people answering these questions. Report back or read the transcript to practise speaking.</p>[/et_pb_text][/et_pb_column][/et_pb_row][et_pb_row admin_label="WARMUP AUDIO" _builder_version="4.16" _module_preset="default" custom_padding="|||0px|false|false" global_colors_info="{}"][et_pb_column type="4_4" _builder_version="4.16" _module_preset="default" global_colors_info="{}"][et_pb_text admin_label="AUDIO AND QUESTION 1" _builder_version="4.27.4" _module_preset="default" text_font="|300|||||||" global_colors_info="{}"]<table border="0" style="border-collapse: collapse; width: 100%; height: 10px;">
+<tbody>
+<tr style="height: 10px;">
+<td style="width: 10%; height: 10px;">
+<p>[audio mp3="{{MP3_1}}"][/audio]</p>
+</td>
+<td style="width: 90%; height: 10px;">{{Q1}}</td>
+</tr>
+</tbody>
+</table>[/et_pb_text][et_pb_toggle title="TRANSCRIPT" open_toggle_text_color="{{TOGGLE_TEXT}}" open_toggle_background_color="#ffffff" closed_toggle_background_color="{{TOGGLE_CLOSED_BG}}" icon_color="#ffffff" use_icon_font_size="on" icon_font_size="30px" open_icon_color="#ffffff" open_use_icon_font_size="on" open_icon_font_size="30px" admin_label="TRANSCRIPT 1" _builder_version="4.27.4" title_text_color="{{TOGGLE_TEXT}}" title_font="Roboto|700||||on|||" title_font_size="24px" title_letter_spacing="2px" body_font="Roboto Slab|300|||||||" body_text_color="{{TOGGLE_BODY}}" body_font_size="16px" global_colors_info="{}"]{{T1}}[/et_pb_toggle][et_pb_text admin_label="AUDIO AND QUESTION 2" _builder_version="4.27.9" _module_preset="default" text_font="|300|||||||" global_colors_info="{}"]<table border="0" style="border-collapse: collapse; width: 100%; height: 10px;">
+<tbody>
+<tr style="height: 10px;">
+<td style="width: 10%; height: 10px;">
+<p>[audio mp3="{{MP3_2}}"][/audio]</p>
+</td>
+<td style="width: 90%; height: 10px;">{{Q2}}</td>
+</tr>
+</tbody>
+</table>[/et_pb_text][et_pb_toggle title="TRANSCRIPT" open_toggle_text_color="{{TOGGLE_TEXT}}" open_toggle_background_color="#ffffff" closed_toggle_background_color="{{TOGGLE_CLOSED_BG}}" icon_color="#ffffff" use_icon_font_size="on" icon_font_size="30px" open_icon_color="#ffffff" open_use_icon_font_size="on" open_icon_font_size="30px" admin_label="TRANSCRIPT 2" _builder_version="4.27.4" title_text_color="{{TOGGLE_TEXT}}" title_font="Roboto|700||||on|||" title_font_size="24px" title_letter_spacing="2px" body_font="Roboto Slab|300|||||||" body_text_color="{{TOGGLE_BODY}}" body_font_size="16px" global_colors_info="{}"]{{T2}}[/et_pb_toggle][et_pb_text admin_label="AUDIO AND QUESTION 3" _builder_version="4.27.4" _module_preset="default" text_font="|300|||||||" global_colors_info="{}"]<table border="0" style="border-collapse: collapse; width: 100%; height: 10px;">
+<tbody>
+<tr style="height: 10px;">
+<td style="width: 10%; height: 10px;">
+<p>[audio mp3="{{MP3_3}}"][/audio]</p>
+</td>
+<td style="width: 90%; height: 10px;">{{Q3}}</td>
+</tr>
+</tbody>
+</table>[/et_pb_text][et_pb_toggle title="TRANSCRIPT" open_toggle_text_color="{{TOGGLE_TEXT}}" open_toggle_background_color="#ffffff" closed_toggle_background_color="{{TOGGLE_CLOSED_BG}}" icon_color="#ffffff" use_icon_font_size="on" icon_font_size="30px" open_icon_color="#ffffff" open_use_icon_font_size="on" open_icon_font_size="30px" admin_label="TRANSCRIPT 3" _builder_version="4.27.4" title_text_color="{{TOGGLE_TEXT}}" title_font="Roboto|700||||on|||" title_font_size="24px" title_letter_spacing="2px" body_font="Roboto Slab|300|||||||" body_text_color="{{TOGGLE_BODY}}" body_font_size="16px" global_colors_info="{}"]{{T3}}[/et_pb_toggle][et_pb_image src="{{WARMUP_SRC}}" show_in_lightbox="on" align="right" admin_label="WARMUP IMAGE" _builder_version="4.27.4" _module_preset="default" max_height="300px" border_radii="on|10px|10px|10px|10px" box_shadow_style="preset3" global_colors_info="{}"][/et_pb_image][/et_pb_column][/et_pb_row][/et_pb_section]

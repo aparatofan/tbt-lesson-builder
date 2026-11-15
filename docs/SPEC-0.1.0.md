@@ -42,7 +42,7 @@ If either plugin (or one of its functions) is missing, the page shows one line n
 |---|---|---|
 | WordPress category (looked up by name) | Man and Society | Personal Development |
 | Header family | General Interest (`gi`) | Personal Development (`pd`) |
-| Category icon (global module) | 30080 | 30091 |
+| Category icon (global module) | 30080 | 30087 |
 | Comprehension number colour | `#663366` | `#006600` |
 | Poll / glossary `domain` | `gi` | `pd` |
 | Warm-up header row | 365603 | 365564 |
@@ -201,6 +201,6 @@ Mariusz rebuilds *How to Make Stress Your Friend* through the form from its Word
 - [ ] Open in Divi: the layout matches the current lesson section for section, with the General Interest part headers 1–7, the category and B2 icons, and “Watch the fifth/sixth/seventh part” correct.
 - [ ] Editing a global part header in the Divi library changes it in the new lesson too (the rows are still global).
 - [ ] Preview: flashcards play, each video part starts and stops at its times, comprehension hints show on hover in purple circles, the poll votes, the glossary searches and pages, the mind map loads, comments show.
-- [ ] The same lesson built as Personal Development gets the green PD headers, the Personal Productivity icon, green circles, `domain="pd"` poll and glossary.
+- [ ] The same lesson built as Personal Development gets the green PD headers, the PD category icon (30087, as on the live PD lessons), green circles and green transcript toggles, `domain="pd"` poll and glossary.
 - [ ] A failure on the post insert (e.g. Divi library item ID changed in config) leaves no orphan sets or polls.
 - [ ] Hard refresh shows `?ver=0.1.0` on the builder assets.
