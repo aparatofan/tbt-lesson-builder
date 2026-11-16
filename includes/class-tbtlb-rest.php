@@ -518,31 +518,15 @@ final class TBTLB_Rest {
 			);
 		}
 		$resolved = TBTLB_Format::resolve_parts( $times );
-		foreach ( $resolved['errors'] as $i => $error ) {
-			/* translators: 1: part number, 2: the problem. */
-			return $fail( sprintf( __( 'Part %1$d: %2$s.', 'tbt-lesson-builder' ), $i + 1, $error ) );
-		}
-		$qa = TBTLB_Format::parse_qa( $str( 'qa' ) );
-		if ( ! $qa ) {
-			return $fail( __( 'Video parts: paste the comprehension questions (time, question, answer).', 'tbt-lesson-builder' ) );
-		}
-		$assigned = TBTLB_Format::assign_questions( $resolved['ranges'], $qa );
-		if ( $assigned['outside'] ) {
-			$count = count( $assigned['outside'] );
-			$shown = array_slice( array_column( $assigned['outside'], 'time' ), 0, 5 );
-			$list  = implode( ', ', $shown ) . ( $count > 5 ? ', …' : '' );
-			return $fail(
-				sprintf(
-					/* translators: 1: number of questions, 2: their times. */
-					_n( 'Video parts: %1$d question falls outside every part (%2$s).', 'Video parts: %1$d questions fall outside every part (%2$s).', $count, 'tbt-lesson-builder' ),
-					$count,
-					$list
-				)
-			);
-		}
-		$parts = array();
+		$parts    = array();
+		/* Per part, in the order of its rows on screen: range → flashcards → questions. */
 		foreach ( $parts_in as $i => $part ) {
-			$part  = is_array( $part ) ? $part : array();
+			$part = is_array( $part ) ? $part : array();
+			if ( isset( $resolved['errors'][ $i ] ) ) {
+				/* translators: 1: part number, 2: the problem. */
+				return $fail( sprintf( __( 'Part %1$d: %2$s.', 'tbt-lesson-builder' ), $i + 1, $resolved['errors'][ $i ] ) );
+			}
+			$range = $resolved['ranges'][ $i ];
 			$cards = TBTLB_Format::parse_cards( $str( 'cards', $part ) );
 			if ( ! $cards ) {
 				/* translators: %d: part number. */
@@ -557,11 +541,33 @@ final class TBTLB_Rest {
 				/* translators: %d: part number. */
 				return $fail( sprintf( __( 'Part %d: a flashcard set has at most 300 cards.', 'tbt-lesson-builder' ), $i + 1 ) );
 			}
+			$rows = TBTLB_Format::parse_qa( $str( 'qa', $part ) );
+			if ( ! $rows ) {
+				/* translators: %d: part number. */
+				return $fail( sprintf( __( 'Part %d: paste the comprehension questions (time, question, answer).', 'tbt-lesson-builder' ), $i + 1 ) );
+			}
+			$outside = TBTLB_Format::questions_outside( $range, $rows );
+			if ( $outside ) {
+				$count = count( $outside );
+				$shown = array_slice( array_column( $outside, 'time' ), 0, 5 );
+				$list  = implode( ', ', $shown ) . ( $count > 5 ? ', …' : '' );
+				$span  = TBTLB_Format::seconds_to_time( $range['start'] ) . '–' . TBTLB_Format::seconds_to_time( $range['end'] );
+				return $fail(
+					sprintf(
+						/* translators: 1: part number, 2: number of questions, 3: the part's range, 4: the questions' times. */
+						_n( 'Part %1$d: %2$d question is outside %3$s (%4$s).', 'Part %1$d: %2$d questions are outside %3$s (%4$s).', $count, 'tbt-lesson-builder' ),
+						$i + 1,
+						$count,
+						$span,
+						$list
+					)
+				);
+			}
 			$parts[] = array(
-				'start' => $resolved['ranges'][ $i ]['start'],
-				'end'   => $resolved['ranges'][ $i ]['end'],
+				'start' => $range['start'],
+				'end'   => $range['end'],
 				'cards' => $cards,
-				'rows'  => $assigned['buckets'][ $i ],
+				'rows'  => $rows,
 			);
 		}
 
