@@ -15,7 +15,7 @@ final class TBTLB_Rest {
 
 	/** Functions this plugin calls in TBT Flashcards and TBT Poll. */
 	const REQUIRED = array(
-		'TBT Flashcards 2.1.0' => array( 'tbt_fc_create_set', 'tbt_fc_fill_cards', 'tbt_fc_tts_mp3' ),
+		'TBT Flashcards 2.2.0' => array( 'tbt_fc_create_set', 'tbt_fc_fill_cards', 'tbt_fc_tts_mp3', 'tbt_fc_read_csv_text', 'tbt_fc_parse_csv' ),
 		'TBT Poll 0.1.0'       => array( 'tbt_poll_parse', 'tbt_poll_create', 'tbt_poll_shortcode' ),
 	);
 
@@ -38,8 +38,13 @@ final class TBTLB_Rest {
 					return ! function_exists( $fn );
 				}
 			);
-			if ( 'TBT Flashcards 2.1.0' === $plugin && ! shortcode_exists( 'tbt_flashcards_glossary' ) ) {
-				$absent[] = '[tbt_flashcards_glossary]';
+			if ( 'TBT Flashcards 2.2.0' === $plugin ) {
+				if ( ! defined( 'TBT_FC_VERSION' ) || ! version_compare( TBT_FC_VERSION, '2.2.0', '>=' ) ) {
+					$absent[] = 'version 2.2.0';
+				}
+				if ( ! shortcode_exists( 'tbt_flashcards_glossary' ) ) {
+					$absent[] = '[tbt_flashcards_glossary]';
+				}
 			}
 			if ( $absent ) {
 				$missing[] = $plugin . ' (' . implode( ', ', $absent ) . ')';
@@ -266,8 +271,11 @@ final class TBTLB_Rest {
 			'poll' => 0,
 		);
 
-		// 2. One flashcard set per part.
+		// 2. One flashcard set per part, except parts linked to a file in Media.
 		foreach ( $lesson['parts'] as $i => $part ) {
+			if ( '' !== $part['media_url'] ) {
+				continue;
+			}
 			/* translators: 1: lesson title, 2: part number. */
 			$set = tbt_fc_create_set( sprintf( __( '%1$s — part %2$d', 'tbt-lesson-builder' ), $lesson['title'], $i + 1 ), $part['cards'], $lesson['title'] );
 			if ( is_wp_error( $set ) ) {
@@ -275,7 +283,7 @@ final class TBTLB_Rest {
 				/* translators: 1: part number, 2: error message. */
 				return self::error( sprintf( __( 'Part %1$d: the flashcard set could not be made. %2$s', 'tbt-lesson-builder' ), $i + 1, $set->get_error_message() ), 500 );
 			}
-			$made['sets'][] = (int) $set;
+			$made['sets'][ $i ] = (int) $set;
 		}
 
 		// 3. The poll.
@@ -298,14 +306,15 @@ final class TBTLB_Rest {
 		$post_id = wp_insert_post(
 			wp_slash(
 				array(
-					'post_type'     => 'post',
-					'post_status'   => 'draft',
-					'post_title'    => $lesson['title'],
-					'post_content'  => $content,
-					'post_excerpt'  => $lesson['excerpt'],
-					'post_category' => array( $lesson['wp_category'] ),
-					'tags_input'    => $lesson['tags'],
-					'post_author'   => get_current_user_id(),
+					'post_type'      => 'post',
+					'post_status'    => 'draft',
+					'post_title'     => $lesson['title'],
+					'post_content'   => $content,
+					'post_excerpt'   => $lesson['excerpt'],
+					'post_category'  => array( $lesson['wp_category'] ),
+					'tags_input'     => $lesson['tags'],
+					'post_author'    => get_current_user_id(),
+					'comment_status' => 'open',
 				)
 			),
 			true
@@ -342,8 +351,19 @@ final class TBTLB_Rest {
 		foreach ( $lesson['parts'] as $part ) {
 			$questions += count( $part['rows'] );
 		}
-		$cat   = TBTLB_Config::category( $lesson['category'] );
-		$parts = count( $lesson['parts'] );
+		$cat    = TBTLB_Config::category( $lesson['category'] );
+		$parts  = count( $lesson['parts'] );
+		$sets   = count( $made['sets'] );
+		$linked = $parts - $sets;
+		$what   = array();
+		if ( $sets ) {
+			/* translators: %d: number of flashcard sets. */
+			$what[] = sprintf( _n( '%d flashcard set', '%d flashcard sets', $sets, 'tbt-lesson-builder' ), $sets );
+		}
+		if ( $linked ) {
+			/* translators: %d: number of linked CSV files. */
+			$what[] = sprintf( _n( '%d linked file', '%d linked files', $linked, 'tbt-lesson-builder' ), $linked );
+		}
 
 		return rest_ensure_response(
 			array(
@@ -361,8 +381,8 @@ final class TBTLB_Rest {
 					sprintf( __( 'Divi draft in %1$s, level %2$s, with %3$s headers', 'tbt-lesson-builder' ), $cat['label'], $lesson['level'], $cat['family'] ),
 					/* translators: 1: number of parts, 2: YouTube video ID. */
 					sprintf( _n( '%1$d video part cut from %2$s', '%1$d video parts cut from %2$s', $parts, 'tbt-lesson-builder' ), $parts, $lesson['video_id'] ),
-					/* translators: 1: number of sets, 2: number of cards. */
-					sprintf( _n( '%1$d flashcard set, %2$d cards', '%1$d flashcard sets, %2$d cards', $parts, 'tbt-lesson-builder' ), $parts, $cards ),
+					/* translators: 1: "1 flashcard set and 1 linked file", 2: number of cards. */
+					sprintf( _n( '%1$s, %2$d card', '%1$s, %2$d cards', $cards, 'tbt-lesson-builder' ), implode( __( ' and ', 'tbt-lesson-builder' ), $what ), $cards ),
 					/* translators: 1: number of questions, 2: number of tables. */
 					sprintf( __( '%1$d comprehension questions in %2$d tables', 'tbt-lesson-builder' ), $questions, $parts ),
 					/* translators: %d: number of poll questions. */
@@ -390,6 +410,67 @@ final class TBTLB_Rest {
 	}
 
 	/* ---------- Validation ---------- */
+
+	/**
+	 * A part's flashcards file from the Media library: the attachment must be
+	 * a .csv, .tsv or .txt in uploads, and its cards are read from the file
+	 * itself (what the lesson will show), not from the box on the page.
+	 *
+	 * @param int $id Attachment ID.
+	 * @param int $n  Part number, for the messages.
+	 * @return array|WP_Error { url: string, cards: array[] }
+	 */
+	private static function linked_cards( $id, $n ) {
+		$url     = 'attachment' === get_post_type( $id ) ? (string) wp_get_attachment_url( $id ) : '';
+		$file    = (string) get_attached_file( $id );
+		$uploads = wp_upload_dir( null, false );
+		$base    = empty( $uploads['baseurl'] ) ? '' : preg_replace( '#^https?:#i', '', trailingslashit( $uploads['baseurl'] ) );
+		$in_up   = '' !== $base && 0 === strpos( preg_replace( '#^https?:#i', '', $url ), $base );
+		if ( '' === $url || ! $in_up || ! preg_match( '/\.(csv|tsv|txt)$/i', '' !== $file ? $file : (string) wp_parse_url( $url, PHP_URL_PATH ) ) ) {
+			/* translators: %d: part number. */
+			return self::error( sprintf( __( 'Part %d: the flashcards file is missing from Media.', 'tbt-lesson-builder' ), $n ) );
+		}
+		$name = rawurldecode( wp_basename( (string) wp_parse_url( $url, PHP_URL_PATH ) ) );
+		$text = tbt_fc_read_csv_text( $url );
+		if ( is_wp_error( $text ) ) {
+			/* translators: %d: part number. */
+			return self::error( sprintf( __( 'Part %d: the flashcards file is missing from Media.', 'tbt-lesson-builder' ), $n ) );
+		}
+		$cards = array();
+		foreach ( (array) tbt_fc_parse_csv( (string) $text ) as $card ) {
+			$card    = (array) $card;
+			$cards[] = array(
+				'word'        => isset( $card['word'] ) ? TBTLB_Format::js_trim( (string) $card['word'] ) : '',
+				'phonetic'    => isset( $card['phonetic'] ) ? TBTLB_Format::js_trim( (string) $card['phonetic'] ) : '',
+				'translation' => isset( $card['translation'] ) ? TBTLB_Format::js_trim( (string) $card['translation'] ) : '',
+				'example'     => isset( $card['example'] ) ? TBTLB_Format::js_trim( (string) $card['example'] ) : '',
+			);
+		}
+		if ( ! $cards ) {
+			/* translators: 1: part number, 2: file name. */
+			return self::error( sprintf( __( 'Part %1$d: %2$s has no flashcards.', 'tbt-lesson-builder' ), $n, $name ) );
+		}
+		$todo = TBTLB_Format::incomplete( $cards );
+		if ( $todo ) {
+			return self::error(
+				sprintf(
+					/* translators: 1: part number, 2: number of cards, 3: file name. */
+					_n( 'Part %1$d: %2$d card in %3$s is incomplete.', 'Part %1$d: %2$d cards in %3$s are incomplete.', $todo, 'tbt-lesson-builder' ),
+					$n,
+					$todo,
+					$name
+				)
+			);
+		}
+		if ( count( $cards ) > 300 ) {
+			/* translators: 1: part number, 2: file name. */
+			return self::error( sprintf( __( 'Part %1$d: %2$s has more than 300 cards.', 'tbt-lesson-builder' ), $n, $name ) );
+		}
+		return array(
+			'url'   => $url,
+			'cards' => $cards,
+		);
+	}
 
 	/**
 	 * Re-validate the whole form with the same helpers as the page. Returns
@@ -425,10 +506,18 @@ final class TBTLB_Rest {
 		if ( ! $cat ) {
 			return $fail( __( 'Basics: choose the category.', 'tbt-lesson-builder' ) );
 		}
-		$term = get_term_by( 'name', $cat['wp_category'], 'category' );
-		if ( ! $term ) {
-			/* translators: %s: category name. */
-			return $fail( sprintf( __( 'Category ‘%s’ was not found.', 'tbt-lesson-builder' ), $cat['wp_category'] ) );
+		if ( ! empty( $cat['wp_category_id'] ) ) {
+			$term = get_term( (int) $cat['wp_category_id'], 'category' );
+			if ( ! $term || is_wp_error( $term ) ) {
+				/* translators: 1: category name, 2: category ID. */
+				return $fail( sprintf( __( 'Category ‘%1$s’ (ID %2$d) was not found.', 'tbt-lesson-builder' ), $cat['wp_category'], (int) $cat['wp_category_id'] ) );
+			}
+		} else {
+			$term = get_term_by( 'name', $cat['wp_category'], 'category' );
+			if ( ! $term ) {
+				/* translators: %s: category name. */
+				return $fail( sprintf( __( 'Category ‘%s’ was not found.', 'tbt-lesson-builder' ), $cat['wp_category'] ) );
+			}
 		}
 		$level = $str( 'level' );
 		if ( ! isset( TBTLB_Config::LEVELS[ $level ] ) ) {
@@ -526,20 +615,31 @@ final class TBTLB_Rest {
 				/* translators: 1: part number, 2: the problem. */
 				return $fail( sprintf( __( 'Part %1$d: %2$s.', 'tbt-lesson-builder' ), $i + 1, $resolved['errors'][ $i ] ) );
 			}
-			$range = $resolved['ranges'][ $i ];
-			$cards = TBTLB_Format::parse_cards( $str( 'cards', $part ) );
-			if ( ! $cards ) {
-				/* translators: %d: part number. */
-				return $fail( sprintf( __( 'Part %d: add the flashcards.', 'tbt-lesson-builder' ), $i + 1 ) );
-			}
-			$todo = TBTLB_Format::incomplete( $cards );
-			if ( $todo ) {
-				/* translators: 1: part number, 2: number of cards. */
-				return $fail( sprintf( _n( 'Part %1$d: %2$d card still needs AI.', 'Part %1$d: %2$d cards still need AI.', $todo, 'tbt-lesson-builder' ), $i + 1, $todo ) );
-			}
-			if ( count( $cards ) > 300 ) {
-				/* translators: %d: part number. */
-				return $fail( sprintf( __( 'Part %d: a flashcard set has at most 300 cards.', 'tbt-lesson-builder' ), $i + 1 ) );
+			$range     = $resolved['ranges'][ $i ];
+			$media_id  = isset( $part['media'] ) && is_numeric( $part['media'] ) ? (int) $part['media'] : 0;
+			$media_url = '';
+			if ( $media_id > 0 ) {
+				$linked = self::linked_cards( $media_id, $i + 1 );
+				if ( is_wp_error( $linked ) ) {
+					return $linked;
+				}
+				$cards     = $linked['cards'];
+				$media_url = $linked['url'];
+			} else {
+				$cards = TBTLB_Format::parse_cards( $str( 'cards', $part ) );
+				if ( ! $cards ) {
+					/* translators: %d: part number. */
+					return $fail( sprintf( __( 'Part %d: add the flashcards.', 'tbt-lesson-builder' ), $i + 1 ) );
+				}
+				$todo = TBTLB_Format::incomplete( $cards );
+				if ( $todo ) {
+					/* translators: 1: part number, 2: number of cards. */
+					return $fail( sprintf( _n( 'Part %1$d: %2$d card still needs AI.', 'Part %1$d: %2$d cards still need AI.', $todo, 'tbt-lesson-builder' ), $i + 1, $todo ) );
+				}
+				if ( count( $cards ) > 300 ) {
+					/* translators: %d: part number. */
+					return $fail( sprintf( __( 'Part %d: a flashcard set has at most 300 cards.', 'tbt-lesson-builder' ), $i + 1 ) );
+				}
 			}
 			$rows = TBTLB_Format::parse_qa( $str( 'qa', $part ) );
 			if ( ! $rows ) {
@@ -566,8 +666,9 @@ final class TBTLB_Rest {
 			$parts[] = array(
 				'start' => $range['start'],
 				'end'   => $range['end'],
-				'cards' => $cards,
-				'rows'  => $rows,
+				'cards'     => $cards,
+				'media_url' => $media_url,
+				'rows'      => $rows,
 			);
 		}
 
