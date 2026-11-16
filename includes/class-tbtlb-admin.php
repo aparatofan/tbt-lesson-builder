@@ -176,26 +176,17 @@ final class TBTLB_Admin {
 
 				<section class="tbtlb-stage" id="tbtlb-s-video">
 					<h2><?php esc_html_e( 'Video parts', 'tbt-lesson-builder' ); ?></h2>
-					<p class="tbtlb-lead"><?php esc_html_e( 'Paste the video once, then give each part its start and end. The builder writes the embed code for every part. Leave a start empty and it continues from the previous part; type one to skip a stretch of the video.', 'tbt-lesson-builder' ); ?></p>
+					<p class="tbtlb-lead"><?php esc_html_e( 'Paste the video once. Then fill in each part: its time, its flashcards, its questions.', 'tbt-lesson-builder' ); ?></p>
 					<div class="tbtlb-field">
 						<label for="tbtlb-yt"><?php esc_html_e( 'YouTube video', 'tbt-lesson-builder' ); ?> <span class="tbtlb-hint"><?php esc_html_e( '— the link or the whole embed code', 'tbt-lesson-builder' ); ?></span></label>
 						<input type="text" id="tbtlb-yt" data-bind="youtube" placeholder="https://youtu.be/…  or  <iframe … >">
 						<span class="tbtlb-hint" id="tbtlb-yt-info"></span>
-					</div>
-					<div class="tbtlb-field">
-						<div class="tbtlb-row-between"><label for="tbtlb-qa"><?php esc_html_e( 'Comprehension questions', 'tbt-lesson-builder' ); ?></label><span class="tbtlb-hint"><?php esc_html_e( 'Paste three columns from Excel: time, question, answer', 'tbt-lesson-builder' ); ?></span></div>
-						<textarea id="tbtlb-qa" class="tbtlb-mono" rows="6" data-bind="qa" placeholder="0:22&#9;How does she want to engage with the audience?&#9;She wants the audience to…"></textarea>
-					</div>
-					<div class="tbtlb-timeline" aria-hidden="true">
-						<div class="tbtlb-tl-bar" id="tbtlb-tl-bar"></div>
-						<div class="tbtlb-tl-scale"><span id="tbtlb-tl-start">0:00</span><span id="tbtlb-tl-end"></span></div>
 					</div>
 					<div class="tbtlb-parts" id="tbtlb-parts"></div>
 					<div class="tbtlb-addrow">
 						<button type="button" class="tbtlb-btn" id="tbtlb-add-part"><?php esc_html_e( 'Add part', 'tbt-lesson-builder' ); ?></button>
 						<span class="tbtlb-hint" id="tbtlb-part-count"></span>
 					</div>
-					<div id="tbtlb-video-notice"></div>
 				</section>
 
 				<section class="tbtlb-stage" id="tbtlb-s-poll">

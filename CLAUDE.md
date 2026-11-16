@@ -5,7 +5,7 @@ Keep this file concise. It is loaded at the start of every Claude Code session.
 ## Start here
 
 - Work from the task, not from a full-repository scan.
-- The current release is specified in `docs/SPEC-0.1.0.md`. Follow it in order. Phase 0 is read-only and ends with a report; do not edit anything before Mariusz answers it.
+- The current release is specified in `docs/SPEC-0.2.0.md`. Follow it in order. Phase 0 is read-only and ends with a report; do not edit anything before Mariusz answers it.
 - `docs/prototypes/builder.html` is the approved design. Where the spec and the prototype disagree, the spec wins; where the spec is silent, the prototype decides.
 - `docs/reference/sample-lesson.json` is the Divi export of a finished lesson. Every piece of Divi markup the builder writes comes from it. It is large: parse it with a script, never paste it into the conversation.
 - Sibling code is the reference for patterns: `aparatofan/tbt-poll` (bootstrap, Hub item, tokens, deploy), `aparatofan/flashcards` (sets, AI fill, ElevenLabs), `aparatofan/tbt_comprehension` (`assets/admin.js`, the comprehension table this plugin ports to PHP).

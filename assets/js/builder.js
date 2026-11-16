@@ -67,6 +67,14 @@
 		return null;
 	}
 
+	/** A part's Start or End box: bare digits as seconds, m.ss, then timeToSeconds(). */
+	function partTimeToSeconds(value) {
+		var v = jsTrim(value), m;
+		if (/^\d{1,4}$/.test(v)) { return +v; }
+		if ((m = v.match(/^(\d{1,3})\.([0-5]\d)$/))) { return (+m[1]) * 60 + (+m[2]); }
+		return timeToSeconds(v);
+	}
+
 	function secondsToTime(s) {
 		s = Math.max(0, s | 0);
 		return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
@@ -93,8 +101,8 @@
 		parts.forEach(function (p, i) {
 			var startRaw = jsTrim(p.start), endRaw = jsTrim(p.end);
 			var auto = i === 0 ? 0 : prevEnd;
-			var start = startRaw === '' ? auto : timeToSeconds(startRaw);
-			var end = endRaw === '' ? null : timeToSeconds(endRaw);
+			var start = startRaw === '' ? auto : partTimeToSeconds(startRaw);
+			var end = endRaw === '' ? null : partTimeToSeconds(endRaw);
 			var error = '';
 			if (startRaw !== '' && start === null) { error = 'Use minutes:seconds, e.g. 3:08'; }
 			else if (start === null) { error = 'Enter the start'; }
@@ -160,10 +168,6 @@
 		return m ? m[1] : null;
 	}
 
-	function embedIframe(id, start, end) {
-		return '<iframe width="1080" height="615" src="https://www.youtube.com/embed/' + id + '?start=' + start + '&end=' + end + '" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>';
-	}
-
 	/** TBT Poll's paste format (TBTPL_Format::parse()). */
 	function pollCleanLine(line) {
 		line = String(line).replace(/ /g, ' ').trim();
@@ -216,7 +220,7 @@
 			title: '', excerpt: '', category: '', level: '', tags: '',
 			images: { featured: null, hero: null, warmup: null, poll: null },
 			warmup: [0, 1, 2].map(function () { return { question: '', character: CFG.characters[0], answer: '', audio: null }; }),
-			youtube: '', qa: '', parts: [], poll: '', scenario: '', dialogue: '', questions: '', mindmap: ''
+			youtube: '', parts: [], poll: '', scenario: '', dialogue: '', questions: '', mindmap: ''
 		};
 	}
 
@@ -236,7 +240,7 @@
 		try { saved = JSON.parse(window.localStorage.getItem(CFG.storageKey) || 'null'); } catch (e) { saved = null; }
 		if (!saved || typeof saved !== 'object') { return false; }
 		var s = blank();
-		['title', 'excerpt', 'category', 'level', 'tags', 'youtube', 'qa', 'poll', 'scenario', 'dialogue', 'questions', 'mindmap'].forEach(function (k) {
+		['title', 'excerpt', 'category', 'level', 'tags', 'youtube', 'poll', 'scenario', 'dialogue', 'questions', 'mindmap'].forEach(function (k) {
 			if (typeof saved[k] === 'string') { s[k] = saved[k]; }
 		});
 		if (saved.images && typeof saved.images === 'object') {
@@ -257,13 +261,39 @@
 		if (Array.isArray(saved.parts)) {
 			s.parts = saved.parts.slice(0, CFG.maxParts).map(function (p) {
 				p = p || {};
-				return { start: String(p.start || ''), end: String(p.end || ''), cards: String(p.cards || '') };
+				return { start: String(p.start || ''), end: String(p.end || ''), cards: String(p.cards || ''), qa: String(p.qa || '') };
 			});
 		}
+		migrateQa(s, saved.qa);
 		if (!CFG.categories[s.category]) { s.category = ''; }
 		if (CFG.levels.indexOf(s.level) === -1) { s.level = ''; }
 		state = s;
 		return true;
+	}
+
+	/**
+	 * 0.1.0 kept one questions paste for the whole video. Sort its lines into
+	 * the parts once, by the old rule (assignQuestions: the first part whose
+	 * range holds the time); lines that fit no part go to Part 1, where they
+	 * show red. Each line moves as it was typed.
+	 */
+	function migrateQa(s, oldQa) {
+		if (typeof oldQa !== 'string' || !jsTrim(oldQa)) { return; }
+		if (s.parts.some(function (p) { return jsTrim(p.qa) !== ''; })) { return; }
+		if (!s.parts.length) { s.parts.push({ start: '', end: '', cards: '', qa: '' }); }
+		var ranges = resolveParts(s.parts).ranges;
+		var buckets = s.parts.map(function () { return []; });
+		String(oldQa).split(/\r\n|\r|\n/).forEach(function (line) {
+			if (!jsTrim(line)) { return; }
+			var row = parseQa(line)[0];
+			var to = 0;
+			if (row) {
+				var placed = assignQuestions(ranges, [row]).buckets;
+				for (var i = 0; i < placed.length; i++) { if (placed[i].length) { to = i; break; } }
+			}
+			buckets[to].push(line);
+		});
+		s.parts.forEach(function (p, i) { p.qa = buckets[i].join('\n'); });
 	}
 
 	function changed() { refresh(); save(); }
@@ -437,6 +467,22 @@
 	 * ================================================================= */
 
 	var TRASH = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+	var CHEV = '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 7l4 4 4-4"/></svg>';
+	var PLAY = '<svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 2l9 5-9 5z"/></svg>';
+	var STEP_NUM = { time: '1', cards: '2', qa: '3' };
+
+	/** View state only: which part cards are folded. Not autosaved, not sent. */
+	var folded = [];
+
+	function rowLabel(key, label, hint, forId) {
+		return el('div', { className: 'tbtlb-prow-label' }, [
+			el('span', { className: 'tbtlb-step', 'data-step': key, text: STEP_NUM[key] }),
+			el('div', {}, [
+				el(forId ? 'label' : 'span', { className: 'tbtlb-lbl', for: forId || null, text: label }),
+				el('span', { className: 'tbtlb-hint', text: hint })
+			])
+		]);
+	}
 
 	function renderParts() {
 		var box = $('#tbtlb-parts');
@@ -444,21 +490,41 @@
 		state.parts.forEach(function (p, i) {
 			var n = i + 1;
 			var start = el('input', { type: 'text', className: 'tbtlb-time', 'data-k': 'start', 'aria-label': 'Part ' + n + ' start', inputmode: 'numeric' });
-			var end = el('input', { type: 'text', className: 'tbtlb-time', 'data-k': 'end', 'aria-label': 'Part ' + n + ' end', placeholder: 'end' });
+			var end = el('input', { type: 'text', className: 'tbtlb-time', 'data-k': 'end', 'aria-label': 'Part ' + n + ' end', inputmode: 'numeric', placeholder: 'm:ss' });
 			var del = el('button', { type: 'button', className: 'tbtlb-iconbtn', 'aria-label': 'Remove part ' + n, title: 'Remove part' });
 			del.innerHTML = TRASH; // static markup
-			var cards = el('textarea', { id: 'tbtlb-cards-' + i, className: 'tbtlb-mono', 'data-k': 'cards', rows: '5', placeholder: 'word,phonetic,translation,example\nor just the words, one per line' });
+			var chev = el('span', { className: 'tbtlb-chev' });
+			chev.innerHTML = CHEV; // static markup
+			var watch = el('a', { className: 'tbtlb-watch', 'data-watch': '', target: '_blank', rel: 'noopener' });
+			watch.innerHTML = PLAY; // static markup
+			watch.appendChild(document.createTextNode('Watch this part'));
+			var cards = el('textarea', { id: 'tbtlb-cards-' + i, className: 'tbtlb-mono', 'data-k': 'cards', rows: '6', placeholder: 'word,phonetic,translation,example\nor just the words, one per line' });
 			var fill = el('button', { type: 'button', className: 'tbtlb-btn tbtlb-small', 'data-fill': '', text: 'Fill with AI' });
-			var fillMsg = el('span', { className: 'tbtlb-fill-err', 'data-fill-err': '' });
+			var qa = el('textarea', { id: 'tbtlb-qa-' + i, className: 'tbtlb-mono', 'data-k': 'qa', rows: '4', placeholder: 'Paste three columns from Excel: time · question · answer\n0:22\tHow does she want to engage the audience?\tShe wants the audience to…' });
 
 			start.value = p.start;
 			end.value = p.end;
 			cards.value = p.cards;
-			[start, end, cards].forEach(function (input) {
+			qa.value = p.qa;
+			[start, end, cards, qa].forEach(function (input) {
 				input.addEventListener('input', function () { state.parts[i][input.dataset.k] = input.value; changed(); });
 			});
-			del.addEventListener('click', function () {
+			[start, end].forEach(function (input) {
+				input.addEventListener('blur', function () {
+					var s = partTimeToSeconds(input.value);
+					if (jsTrim(input.value) === '' || s === null) { return; }
+					var tidy = secondsToTime(s);
+					if (tidy !== input.value) {
+						input.value = tidy;
+						state.parts[i][input.dataset.k] = tidy;
+						changed();
+					}
+				});
+			});
+			del.addEventListener('click', function (e) {
+				e.stopPropagation();
 				state.parts.splice(i, 1);
+				folded.splice(i, 1);
 				busy.fill = {};
 				fillErr = {};
 				renderParts();
@@ -466,33 +532,66 @@
 			});
 			fill.addEventListener('click', function () { fillCards(i); });
 
-			box.appendChild(el('div', { className: 'tbtlb-part', 'data-part': i }, [
-				el('div', { className: 'tbtlb-part-head' }, [
-					el('span', { className: 'tbtlb-num', text: String(n) }),
-					start,
-					el('span', { className: 'tbtlb-dash', text: '–' }),
-					end,
-					el('span'),
-					del
+			var card = el('div', { className: 'tbtlb-part' + (folded[i] ? ' is-closed' : ''), 'data-part': i });
+			var head = el('div', { className: 'tbtlb-part-head', role: 'button', tabindex: '0', 'aria-expanded': folded[i] ? 'false' : 'true' }, [
+				el('span', { className: 'tbtlb-num', text: String(n) }),
+				el('span', { className: 'tbtlb-part-title', text: 'Part ' + n }),
+				el('span', { className: 'tbtlb-part-range', 'data-range': '' }),
+				el('span', { className: 'tbtlb-part-sum', 'data-sum': '' }),
+				chev,
+				del
+			]);
+			function toggle() {
+				folded[i] = !folded[i];
+				card.classList.toggle('is-closed', folded[i]);
+				head.setAttribute('aria-expanded', folded[i] ? 'false' : 'true');
+			}
+			head.addEventListener('click', function (e) { if (!del.contains(e.target)) { toggle(); } });
+			head.addEventListener('keydown', function (e) {
+				if ((e.key === 'Enter' || e.key === ' ') && e.target === head) { e.preventDefault(); toggle(); }
+			});
+
+			card.appendChild(head);
+			card.appendChild(el('div', { className: 'tbtlb-part-body' }, [
+				el('div', { className: 'tbtlb-prow' }, [
+					rowLabel('time', 'Time', 'Where the clip starts and ends'),
+					el('div', {}, [
+						el('div', { className: 'tbtlb-time-line' }, [
+							el('label', { className: 'tbtlb-tfield' }, [el('span', { text: 'Start' }), start]),
+							el('span', { className: 'tbtlb-arrow', 'aria-hidden': 'true', text: '→' }),
+							el('label', { className: 'tbtlb-tfield' }, [el('span', { text: 'End' }), end]),
+							el('div', { className: 'tbtlb-time-meta' }, [el('span', { className: 'tbtlb-chip', 'data-dur': '' }), watch])
+						]),
+						el('div', { className: 'tbtlb-below' }, [
+							el('span', { className: 'tbtlb-hint', 'data-time-hint': '' }),
+							el('span', { className: 'tbtlb-err-text', 'data-time-err': '' })
+						])
+					])
 				]),
-				el('div', { className: 'tbtlb-part-body' }, [
+				el('div', { className: 'tbtlb-prow' }, [
+					rowLabel('cards', 'Flashcards', 'Words from this part', 'tbtlb-cards-' + i),
 					el('div', {}, [
-						el('label', { className: 'tbtlb-lbl', for: 'tbtlb-cards-' + i, text: 'Flashcards' }),
 						cards,
-						el('div', { className: 'tbtlb-chips', 'data-chips': 'cards' }),
-						el('div', { className: 'tbtlb-fill-row' }, [fill, fillMsg])
-					]),
+						el('div', { className: 'tbtlb-below' }, [
+							el('span', { className: 'tbtlb-chipset', 'data-chips': 'cards' }),
+							fill,
+							el('span', { className: 'tbtlb-fill-err', 'data-fill-err': '' })
+						])
+					])
+				]),
+				el('div', { className: 'tbtlb-prow' }, [
+					rowLabel('qa', 'Questions', 'Excel: time, question, answer', 'tbtlb-qa-' + i),
 					el('div', {}, [
-						el('span', { className: 'tbtlb-lbl', text: 'Comprehension questions' }),
-						el('ul', { className: 'tbtlb-qlist', 'data-q': '' }),
-						el('div', { className: 'tbtlb-chips', 'data-chips': 'q' })
-					]),
-					el('details', { className: 'tbtlb-embed' }, [
-						el('summary', { text: 'Embed code the builder will write' }),
-						el('pre', { 'data-embed': '' })
+						qa,
+						el('div', { className: 'tbtlb-below' }, [
+							el('span', { className: 'tbtlb-chipset', 'data-chips': 'q' }),
+							el('span', { className: 'tbtlb-err-text', 'data-qa-err': '' })
+						]),
+						el('div', { 'data-qtable': '' })
 					])
 				])
 			]));
+			box.appendChild(card);
 		});
 		$('#tbtlb-add-part').disabled = state.parts.length >= CFG.maxParts;
 		$('#tbtlb-part-count').textContent = state.parts.length ? state.parts.length + ' of ' + CFG.maxParts + ' parts' : 'Lessons have 1–' + CFG.maxParts + ' parts';
@@ -546,6 +645,35 @@
 		});
 	}
 
+	/** "55 s", "1 min 35 s", "2 min". */
+	function duration(s) {
+		var m = Math.floor(s / 60), r = s % 60;
+		return m ? m + ' min' + (r ? ' ' + r + ' s' : '') : r + ' s';
+	}
+
+	/**
+	 * A part's questions: the rows parseQa() keeps, and how many pasted lines
+	 * it skipped. A first line whose first cell has no digit is a header and
+	 * is skipped silently.
+	 */
+	function partQuestions(text) {
+		var skipped = 0;
+		lines(text).forEach(function (line, k) {
+			if (parseQa(line).length) { return; }
+			var first = line.indexOf('\t') !== -1 ? line.split('\t')[0] : csvLine(line)[0];
+			if (k === 0 && !/\d/.test(first)) { return; }
+			skipped++;
+		});
+		return { rows: parseQa(text), skipped: skipped };
+	}
+
+	function setStep(box, key, status) {
+		var s = $('[data-step="' + key + '"]', box);
+		s.classList.toggle('is-done', status === 'done');
+		s.classList.toggle('is-bad', status === 'bad');
+		s.textContent = status === 'done' ? '✓' : STEP_NUM[key];
+	}
+
 	function refreshVideo() {
 		var raw = jsTrim(state.youtube), id = youtubeId(raw);
 		var info = $('#tbtlb-yt-info');
@@ -553,86 +681,109 @@
 		info.classList.toggle('tbtlb-err-text', !!raw && !id);
 
 		var resolved = resolveParts(state.parts);
-		var qa = parseQa(state.qa);
-		var assigned = assignQuestions(resolved.ranges, qa);
-		var good = resolved.ranges.filter(Boolean);
-		var startAll = good.length ? Math.min.apply(null, good.map(function (r) { return r.start; })) : 0;
-		var endAll = good.length ? Math.max.apply(null, good.map(function (r) { return r.end; })) : null;
-		var cardsOk = true;
+		var problems = [];
+		var rangesOk = true, cardsOk = true, qaOk = true;
 
 		$$('[data-part]').forEach(function (box) {
-			var i = +box.dataset.part, r = resolved.ranges[i], err = resolved.errors[i];
+			var i = +box.dataset.part, n = i + 1, p = state.parts[i];
+			var r = resolved.ranges[i], err = resolved.errors[i] || '';
 			var auto = resolved.autos[i];
-			$('[data-k="start"]', box).placeholder = auto !== null && auto !== undefined ? secondsToTime(auto) : 'start';
-			$('[data-k="end"]', box).classList.toggle('is-invalid', !!err);
-			$('[data-embed]', box).textContent = id && r ? embedIframe(id, r.start, r.end) : 'Appears once the video and this part’s times are in.';
+			var prev = -1;
+			for (var j = i - 1; j >= 0; j--) { if (resolved.ranges[j]) { prev = j; break; } }
 
-			var ql = $('[data-q]', box);
-			ql.textContent = '';
-			var rows = assigned.buckets[i] || [];
-			if (!rows.length) { ql.appendChild(el('li', {}, [el('span', { className: 'tbtlb-empty', text: 'No questions in this part yet' })])); }
-			rows.forEach(function (q) {
-				ql.appendChild(el('li', {}, [el('span', { className: 'tbtlb-t', text: q.time }), el('span', { text: q.question })]));
-			});
-			var qc = $('[data-chips="q"]', box);
-			qc.textContent = '';
-			qc.appendChild(chip(rows.length ? plural(rows.length, 'question', 'questions') : 'No questions', rows.length ? 'ok' : 'warn'));
-			var noHint = rows.filter(function (q) { return !q.answer; }).length;
-			if (noHint) { qc.appendChild(chip(noHint + ' without a hint', 'warn')); }
+			/* Time */
+			var startIn = $('[data-k="start"]', box), endIn = $('[data-k="end"]', box);
+			var startRaw = jsTrim(p.start), endRaw = jsTrim(p.end);
+			var startBad = err === 'Enter the start' || err === 'Overlaps the previous part' || (startRaw !== '' && partTimeToSeconds(startRaw) === null);
+			var waiting = err === 'Enter the end'; // an empty End is not a problem yet
+			var shown = err;
+			if (err === 'Overlaps the previous part' && prev !== -1) {
+				shown = 'Starts before part ' + (prev + 1) + ' ends (' + secondsToTime(resolved.ranges[prev].end) + ')';
+			}
+			if (waiting) { shown = ''; }
+			startIn.placeholder = auto !== null && auto !== undefined ? secondsToTime(auto) : 'm:ss';
+			startIn.classList.toggle('is-invalid', !!shown && startBad);
+			endIn.classList.toggle('is-invalid', !!shown && !startBad);
+			$('[data-time-err]', box).textContent = shown;
+			$('[data-time-hint]', box).textContent = !err && startRaw === '' && i > 0 && prev !== -1 ? 'Starts where part ' + (prev + 1) + ' ends. Type a start to skip a stretch.' : '';
+			var dur = $('[data-dur]', box);
+			dur.textContent = r ? duration(r.end - r.start) : '';
+			dur.hidden = !r;
+			var watch = $('[data-watch]', box);
+			if (r && id) {
+				watch.href = 'https://www.youtube.com/embed/' + id + '?start=' + r.start + '&end=' + r.end + '&autoplay=1';
+				watch.removeAttribute('aria-disabled');
+			} else {
+				watch.removeAttribute('href');
+				watch.setAttribute('aria-disabled', 'true');
+			}
+			$('[data-range]', box).textContent = r ? secondsToTime(r.start) + ' – ' + secondsToTime(r.end) : '';
+			setStep(box, 'time', r ? 'done' : (shown ? 'bad' : ''));
 
-			var cards = parseCards(state.parts[i].cards);
+			/* Flashcards */
+			var cards = parseCards(p.cards);
 			var todo = incomplete(cards);
-			if (!cards.length || todo) { cardsOk = false; }
 			var cc = $('[data-chips="cards"]', box);
 			cc.textContent = '';
-			cc.appendChild(chip(cards.length ? plural(cards.length, 'card', 'cards') : 'No cards', cards.length ? 'ok' : 'warn'));
-			if (todo) { cc.appendChild(chip(todo + ' to fill with AI', 'warn')); }
-			if (err) { cc.appendChild(chip(err, 'err')); }
-
+			cc.appendChild(chip(cards.length ? plural(cards.length, 'word', 'words') : 'No words yet', cards.length ? 'ok' : ''));
 			var fill = $('[data-fill]', box);
 			fill.disabled = !todo || !!busy.fill[i];
-			fill.textContent = busy.fill[i] ? 'Filling…' : 'Fill with AI';
+			fill.textContent = busy.fill[i] ? 'Filling…' : (todo ? 'Fill ' + todo + ' with AI' : (cards.length ? 'All filled' : 'Fill with AI'));
 			$('[data-k="cards"]', box).disabled = !!busy.fill[i];
 			$('[data-fill-err]', box).textContent = fillErr[i] || '';
+			setStep(box, 'cards', cards.length && !todo ? 'done' : '');
+
+			/* Questions */
+			var qs = partQuestions(p.qa);
+			var rows = qs.rows;
+			var outside = r ? rows.filter(function (q) { return q.t < r.start || q.t > r.end; }) : [];
+			var qc = $('[data-chips="q"]', box);
+			qc.textContent = '';
+			qc.appendChild(chip(rows.length ? plural(rows.length, 'question', 'questions') : 'No questions yet', outside.length ? 'err' : (rows.length ? 'ok' : '')));
+			var noHint = rows.filter(function (q) { return !q.answer; }).length;
+			if (noHint) { qc.appendChild(chip(noHint + ' without a hint', 'warn')); }
+			var msgs = [];
+			if (outside.length) {
+				msgs.push(outside.length + ' outside ' + secondsToTime(r.start) + '–' + secondsToTime(r.end) + ' — move ' + (outside.length === 1 ? 'it' : 'them') + ' to the right part or fix the time');
+			}
+			if (qs.skipped) { msgs.push(plural(qs.skipped, 'line', 'lines') + ' skipped: no time or no question'); }
+			$('[data-qa-err]', box).textContent = msgs.join(' · ');
+			var tb = $('[data-qtable]', box);
+			tb.textContent = '';
+			if (rows.length) {
+				tb.appendChild(el('table', { className: 'tbtlb-qtable' }, [
+					el('colgroup', {}, [el('col', { className: 'tbtlb-qt-t' }), el('col'), el('col', { className: 'tbtlb-qt-a' })]),
+					el('thead', {}, [el('tr', {}, [el('th', { text: 'Time' }), el('th', { text: 'Question' }), el('th', { text: 'Answer' })])]),
+					el('tbody', {}, rows.map(function (q) {
+						return el('tr', { className: outside.indexOf(q) !== -1 ? 'is-out' : '' }, [
+							el('td', { className: 'tbtlb-qt-t', text: q.time }),
+							el('td', { className: 'tbtlb-qt-q', text: q.question }),
+							el('td', { className: 'tbtlb-qt-a', text: q.answer || '—', title: q.answer || null })
+						]);
+					}))
+				]));
+			}
+			setStep(box, 'qa', rows.length ? (outside.length ? 'bad' : 'done') : '');
+
+			/* Folded summary */
+			var sum = $('[data-sum]', box);
+			sum.textContent = '';
+			sum.appendChild(chip(plural(cards.length, 'card', 'cards'), cards.length && !todo ? 'ok' : ''));
+			sum.appendChild(chip(plural(rows.length, 'question', 'questions'), outside.length ? 'err' : (rows.length ? 'ok' : '')));
+
+			/* Readiness, in the order of the rows */
+			if (!r) { rangesOk = false; problems.push('Part ' + n + ': fix the time'); }
+			if (!cards.length) { cardsOk = false; problems.push('Part ' + n + ': add the flashcards'); }
+			else if (todo) { cardsOk = false; problems.push('Part ' + n + ': ' + todo + (todo === 1 ? ' card still needs AI' : ' cards still need AI')); }
+			if (!rows.length) { qaOk = false; problems.push('Part ' + n + ': paste the questions'); }
+			else if (outside.length) { qaOk = false; problems.push('Part ' + n + ': ' + plural(outside.length, 'question', 'questions') + ' outside its time'); }
 		});
 
-		// Timeline: parts as proportional segments, a tick per question, gaps for skipped stretches.
-		var bar = $('#tbtlb-tl-bar');
-		bar.textContent = '';
-		if (!state.parts.length || !good.length) {
-			bar.appendChild(el('span', { className: 'tbtlb-tl-empty', text: state.parts.length ? 'Enter where each part ends' : 'Add a part to see the timeline' }));
-		} else {
-			var total = Math.max(1, endAll - startAll);
-			resolved.ranges.forEach(function (r, i) {
-				if (!r) { return; }
-				var seg = el('div', { className: 'tbtlb-tl-seg ' + (i % 2 ? 'is-even' : 'is-odd'), text: String(i + 1) });
-				seg.style.left = ((r.start - startAll) / total * 100) + '%';
-				seg.style.width = ((r.end - r.start) / total * 100) + '%';
-				assigned.buckets[i].forEach(function (q) {
-					var tick = el('span', { className: 'tbtlb-tl-tick' });
-					tick.style.left = ((q.t - r.start) / (r.end - r.start) * 100) + '%';
-					seg.appendChild(tick);
-				});
-				bar.appendChild(seg);
-			});
-		}
-		$('#tbtlb-tl-start').textContent = secondsToTime(startAll);
-		$('#tbtlb-tl-end').textContent = endAll !== null ? secondsToTime(endAll) : '';
-
-		var notice = $('#tbtlb-video-notice');
-		notice.textContent = '';
-		if (assigned.outside.length && state.parts.length) {
-			var n = assigned.outside.length;
-			var times = assigned.outside.slice(0, 3).map(function (q) { return q.time; }).join(', ') + (n > 3 ? '…' : '');
-			notice.appendChild(el('div', {
-				className: 'tbtlb-notice tbtlb-err',
-				text: n + (n > 1 ? ' questions fall' : ' question falls') + ' outside every part (' + times + '). Check the part times, or remove questions from a skipped stretch.'
-			}));
-		}
-
 		var hasParts = state.parts.length > 0;
-		var checks = [!!id, hasParts, hasParts && Object.keys(resolved.errors).length === 0, qa.length > 0 && !assigned.outside.length, hasParts && cardsOk];
-		return { checks: checks, qa: qa };
+		if (!hasParts) { problems.unshift('Video parts: add at least one part'); }
+		if (!id) { problems.unshift('Video parts: paste the YouTube link or embed code'); }
+		var checks = [!!id, hasParts, hasParts && rangesOk, hasParts && cardsOk, hasParts && qaOk];
+		return { checks: checks, problems: problems };
 	}
 
 	/* ===================================================================
@@ -743,6 +894,10 @@
 		ul.textContent = '';
 		STAGES.forEach(function (s) {
 			var done = S[s[0]] === 'done';
+			if (!done && s[0] === 'video' && video.problems.length) {
+				video.problems.forEach(function (t) { ul.appendChild(el('li', { text: t })); });
+				return;
+			}
 			ul.appendChild(el('li', { className: done ? 'is-ok' : '', text: done ? s[1] + ' ready' : s[1] + ' — still to fill in' }));
 		});
 		var anyBusy = busy.create || Object.keys(busy.audio).some(function (k) { return busy.audio[k]; }) || Object.keys(busy.fill).some(function (k) { return busy.fill[k]; });
@@ -768,8 +923,8 @@
 			title: state.title, excerpt: state.excerpt, category: state.category, level: state.level, tags: state.tags,
 			images: images,
 			warmup: state.warmup.map(function (w) { return { question: w.question, character: w.character, answer: w.answer, audio: w.audio ? w.audio.id : 0 }; }),
-			youtube: state.youtube, qa: state.qa,
-			parts: state.parts.map(function (p) { return { start: p.start, end: p.end, cards: p.cards }; }),
+			youtube: state.youtube,
+			parts: state.parts.map(function (p) { return { start: p.start, end: p.end, cards: p.cards, qa: p.qa }; }),
 			poll: state.poll, scenario: state.scenario, dialogue: state.dialogue, questions: state.questions, mindmap: state.mindmap
 		};
 	}
@@ -827,6 +982,7 @@
 	function startOver() {
 		if (!window.confirm('Start over? This clears the whole form.')) { return; }
 		state = blank();
+		folded = [];
 		audioErr = {};
 		fillErr = {};
 		forget();
@@ -841,11 +997,16 @@
 
 	$('#tbtlb-add-part').addEventListener('click', function () {
 		if (state.parts.length >= CFG.maxParts) { return; }
-		state.parts.push({ start: '', end: '', cards: '' });
+		folded = state.parts.map(function () { return true; });
+		state.parts.push({ start: '', end: '', cards: '', qa: '' });
+		folded.push(false);
 		renderParts();
 		changed();
 		var last = $$('[data-part]').pop();
-		if (last) { $('[data-k="end"]', last).focus(); }
+		if (last) {
+			last.scrollIntoView({ behavior: 'smooth', block: 'start' });
+			$('[data-k="end"]', last).focus({ preventScroll: true });
+		}
 	});
 	$('#tbtlb-create').addEventListener('click', create);
 	$('#tbtlb-clear').addEventListener('click', startOver);
