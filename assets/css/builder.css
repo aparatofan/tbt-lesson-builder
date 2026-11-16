@@ -151,6 +151,12 @@
 .tbtlb-chip.is-warn { background: var(--tbt-selected-bg); color: var(--tbt-blue-dark); }
 .tbtlb-chip.is-err { background: var(--tbt-error-bg); color: var(--tbt-error); }
 .tbtlb-fill-err { color: var(--tbt-error); font-size: 14px; }
+.tbtlb textarea[readonly] { color: var(--tbt-muted); }
+.tbtlb textarea[readonly]:focus { background: var(--tbt-input); }
+.tbtlb-media-line { display: flex; align-items: center; gap: var(--tbt-s2); flex-wrap: wrap; margin-top: var(--tbt-s2); font-size: 14px; }
+.tbtlb-media-icon { display: inline-flex; color: var(--tbt-muted); }
+.tbtlb-media-line .tbtlb-link { margin-left: 0; }
+.tbtlb-media-err { margin-top: var(--tbt-s2); font-size: 14px; }
 .tbtlb-qtable { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: var(--tbt-s3); font-size: 14.5px; }
 .tbtlb-qtable th { font: 600 12.5px/1.3 var(--tbt-font-ui); color: var(--tbt-muted); text-align: left; padding: 0 var(--tbt-s3) 6px; text-transform: uppercase; letter-spacing: .06em; }
 .tbtlb-qtable td { padding: 9px var(--tbt-s3); border-top: 1px solid var(--tbt-border); vertical-align: top; }

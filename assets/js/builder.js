@@ -228,7 +228,7 @@
 	var busy = { audio: {}, fill: {}, create: false };
 	var audioErr = {};
 	var fillErr = {};
-	var csvMsg = {}; // per part: { text, err } after Choose CSV file
+	var csvMsg = {}; // per part: { text, err } after Choose from Media library
 
 	function save() {
 		try { window.localStorage.setItem(CFG.storageKey, JSON.stringify(state)); } catch (e) { /* storage off or full */ }
@@ -262,7 +262,12 @@
 		if (Array.isArray(saved.parts)) {
 			s.parts = saved.parts.slice(0, CFG.maxParts).map(function (p) {
 				p = p || {};
-				return { start: String(p.start || ''), end: String(p.end || ''), cards: String(p.cards || ''), qa: String(p.qa || '') };
+				var part = { start: String(p.start || ''), end: String(p.end || ''), cards: String(p.cards || ''), qa: String(p.qa || '') };
+				var m = p.media;
+				if (m && typeof m === 'object' && +m.id > 0 && typeof m.url === 'string' && typeof m.name === 'string') {
+					part.media = { id: +m.id, url: m.url, name: m.name };
+				}
+				return part;
 			});
 		}
 		migrateQa(s, saved.qa);
@@ -469,6 +474,7 @@
 
 	var TRASH = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
 	var CHEV = '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 7l4 4 4-4"/></svg>';
+	var FILE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4"/></svg>';
 	var PLAY = '<svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 2l9 5-9 5z"/></svg>';
 	var STEP_NUM = { time: '1', cards: '2', qa: '3' };
 
@@ -501,8 +507,16 @@
 			watch.appendChild(document.createTextNode('Watch this part'));
 			var cards = el('textarea', { id: 'tbtlb-cards-' + i, className: 'tbtlb-mono', 'data-k': 'cards', rows: '6', placeholder: 'word,phonetic,translation,example\nor just the words, one per line' });
 			var fill = el('button', { type: 'button', className: 'tbtlb-btn tbtlb-small', 'data-fill': '', text: 'Fill with AI' });
-			var csvFile = el('input', { type: 'file', accept: '.csv,.tsv,.txt,text/csv,text/plain', hidden: true, 'aria-hidden': 'true', tabindex: '-1' });
-			var csvBtn = el('button', { type: 'button', className: 'tbtlb-btn tbtlb-small', 'data-csv': '', text: 'Choose CSV file' });
+			var csvBtn = el('button', { type: 'button', className: 'tbtlb-btn tbtlb-small', 'data-csv': '', text: 'Choose from Media library' });
+			var unlink = el('button', { type: 'button', className: 'tbtlb-link', 'data-unlink': '', text: 'Unlink' });
+			var fileIcon = el('span', { className: 'tbtlb-media-icon' });
+			fileIcon.innerHTML = FILE; // static markup
+			var mediaLine = el('div', { className: 'tbtlb-media-line', 'data-media': '', hidden: true }, [
+				fileIcon,
+				el('strong', { 'data-media-name': '' }),
+				el('span', { className: 'tbtlb-hint', text: 'from Media library' }),
+				unlink
+			]);
 			var qa = el('textarea', { id: 'tbtlb-qa-' + i, className: 'tbtlb-mono', 'data-k': 'qa', rows: '4', placeholder: 'Paste three columns from Excel: time · question · answer\n0:22\tHow does she want to engage the audience?\tShe wants the audience to…' });
 
 			start.value = p.start;
@@ -516,11 +530,11 @@
 					changed();
 				});
 			});
-			csvBtn.addEventListener('click', function () { csvFile.click(); });
-			csvFile.addEventListener('change', function () {
-				var file = csvFile.files && csvFile.files[0];
-				csvFile.value = ''; // the same file can be chosen again
-				if (file) { loadCsv(i, file); }
+			csvBtn.addEventListener('click', function () { pickCsv(i); });
+			unlink.addEventListener('click', function () {
+				delete state.parts[i].media;
+				delete csvMsg[i];
+				changed();
 			});
 			[start, end].forEach(function (input) {
 				input.addEventListener('blur', function () {
@@ -586,10 +600,11 @@
 					rowLabel('cards', 'Flashcards', 'Words from this part', 'tbtlb-cards-' + i),
 					el('div', {}, [
 						cards,
+						mediaLine,
+						el('div', { className: 'tbtlb-err-text tbtlb-media-err', 'data-media-err': '' }),
 						el('div', { className: 'tbtlb-below' }, [
 							el('span', { className: 'tbtlb-chipset', 'data-chips': 'cards' }),
 							csvBtn,
-							csvFile,
 							fill,
 							el('span', { className: 'tbtlb-fill-err', 'data-fill-err': '' }),
 							el('span', { 'data-csv-msg': '' })
@@ -615,33 +630,60 @@
 	}
 
 	/**
-	 * Choose CSV file: the file is read in the browser and its text goes into
-	 * the part's Flashcards box, as if pasted. Nothing is uploaded.
+	 * Choose from Media library: one wp.media frame per click. The chosen
+	 * file is fetched (same origin) and its text goes into the part's
+	 * Flashcards box, read-only; the part keeps { id, url, name } so the
+	 * lesson shows the file itself and no flashcard set is made for it.
 	 */
-	function loadCsv(i, file) {
-		var name = file.name;
+	function pickCsv(i) {
+		if (!window.wp || !wp.media) { return; }
+		var part = state.parts[i];
+		var frame = wp.media({
+			title: 'Flashcards for part ' + (i + 1),
+			library: { type: ['text/csv', 'text/tab-separated-values', 'text/plain'] },
+			multiple: false,
+			button: { text: 'Use this file' }
+		});
+		frame.on('select', function () {
+			var a = frame.state().get('selection').first().toJSON();
+			linkCsv(i, part, a);
+		});
+		frame.open();
+	}
+
+	function linkCsv(i, part, a) {
+		var url = String(a.url || '');
+		var name = String(a.filename || url.split('/').pop() || ('#' + a.id));
 		function done(text, err) {
+			if (state.parts[i] !== part) { return; }
 			csvMsg[i] = { text: text, err: !!err };
 			refresh();
 		}
-		if (file.size > 1024 * 1024) { done(name + ' is larger than 1 MB.', true); return; }
-		var reader = new FileReader();
-		reader.onerror = function () { done(name + ' could not be read.', true); };
-		reader.onload = function () {
-			var text = String(reader.result || '').replace(/^\uFEFF/, '').replace(/\r\n|\r/g, '\n').replace(/\s+$/, '');
+		if (!a.id || !url) { done('The file could not be read.', true); return; }
+		if (!/\.(csv|tsv|txt)$/i.test(name)) { done(name + ' is not a CSV file.', true); return; }
+		if (a.filesizeInBytes > 1024 * 1024) { done(name + ' is larger than 1 MB.', true); return; }
+		// Same host, same scheme as the page: an http attachment URL on an https admin would be blocked.
+		var src = url.replace(/^https?:(\/\/[^\/]+)/i, function (all, host) { return host === '//' + window.location.host ? window.location.protocol + host : all; });
+		fetch(src, { credentials: 'same-origin', cache: 'no-store' }).then(function (res) {
+			if (!res.ok) { throw new Error(); }
+			return res.text();
+		}).then(function (raw) {
+			var text = String(raw || '').replace(/^\uFEFF/, '').replace(/\r\n|\r/g, '\n').replace(/\s+$/, '');
 			if (!jsTrim(text)) { done(name + ' is empty.', true); return; }
+			if (text.length > 1024 * 1024) { done(name + ' is larger than 1 MB.', true); return; }
 			var cards = parseCards(text);
 			if (!cards.length) { done('No flashcards found in ' + name + '.', true); return; }
-			var part = state.parts[i];
-			if (!part || busy.fill[i]) { return; }
+			if (state.parts[i] !== part || busy.fill[i]) { return; }
 			if (jsTrim(part.cards) && part.cards !== text && !window.confirm('Replace the flashcards in part ' + (i + 1) + ' with ' + name + '?')) { return; }
 			part.cards = text;
+			part.media = { id: +a.id, url: url, name: name };
 			var box = $('[data-part="' + i + '"] [data-k="cards"]');
 			if (box) { box.value = text; }
-			csvMsg[i] = { text: 'Loaded ' + name + ': ' + plural(cards.length, 'card', 'cards') + '.', err: false };
+			csvMsg[i] = { text: 'Linked ' + name + ': ' + plural(cards.length, 'card', 'cards') + '.', err: false };
 			changed();
-		};
-		reader.readAsText(file, 'UTF-8');
+		}, function () {
+			done(name + ' could not be read.', true);
+		});
 	}
 
 	function chip(text, kind) { return el('span', { className: 'tbtlb-chip' + (kind ? ' is-' + kind : ''), text: text }); }
@@ -773,10 +815,17 @@
 			var cc = $('[data-chips="cards"]', box);
 			cc.textContent = '';
 			cc.appendChild(chip(cards.length ? plural(cards.length, 'word', 'words') : 'No words yet', cards.length ? 'ok' : ''));
+			var media = p.media || null;
 			var fill = $('[data-fill]', box);
 			fill.disabled = !todo || !!busy.fill[i];
 			fill.textContent = busy.fill[i] ? 'Filling…' : (todo ? 'Fill ' + todo + ' with AI' : (cards.length ? 'All filled' : 'Fill with AI'));
-			$('[data-k="cards"]', box).disabled = !!busy.fill[i];
+			fill.hidden = !!media;
+			var cardsBox = $('[data-k="cards"]', box);
+			cardsBox.disabled = !!busy.fill[i];
+			cardsBox.readOnly = !!media;
+			$('[data-media]', box).hidden = !media;
+			$('[data-media-name]', box).textContent = media ? media.name : '';
+			$('[data-media-err]', box).textContent = media && todo ? plural(todo, 'card', 'cards') + ' in ' + media.name + (todo === 1 ? ' is' : ' are') + ' incomplete. Fix the file in Media, or Unlink and use Fill with AI.' : '';
 			$('[data-fill-err]', box).textContent = fillErr[i] || '';
 			$('[data-csv]', box).disabled = !!busy.fill[i];
 			var cm = $('[data-csv-msg]', box), msg = csvMsg[i];
@@ -825,6 +874,7 @@
 			/* Readiness, in the order of the rows */
 			if (!r) { rangesOk = false; problems.push('Part ' + n + ': fix the time'); }
 			if (!cards.length) { cardsOk = false; problems.push('Part ' + n + ': add the flashcards'); }
+			else if (todo && p.media) { cardsOk = false; problems.push('Part ' + n + ': ' + plural(todo, 'card', 'cards') + ' in ' + p.media.name + (todo === 1 ? ' is' : ' are') + ' incomplete'); }
 			else if (todo) { cardsOk = false; problems.push('Part ' + n + ': ' + todo + (todo === 1 ? ' card still needs AI' : ' cards still need AI')); }
 			if (!rows.length) { qaOk = false; problems.push('Part ' + n + ': paste the questions'); }
 			else if (outside.length) { qaOk = false; problems.push('Part ' + n + ': ' + plural(outside.length, 'question', 'questions') + ' outside its time'); }
@@ -975,7 +1025,7 @@
 			images: images,
 			warmup: state.warmup.map(function (w) { return { question: w.question, character: w.character, answer: w.answer, audio: w.audio ? w.audio.id : 0 }; }),
 			youtube: state.youtube,
-			parts: state.parts.map(function (p) { return { start: p.start, end: p.end, cards: p.cards, qa: p.qa }; }),
+			parts: state.parts.map(function (p) { return { start: p.start, end: p.end, cards: p.cards, qa: p.qa, media: p.media ? p.media.id : 0 }; }),
 			poll: state.poll, scenario: state.scenario, dialogue: state.dialogue, questions: state.questions, mindmap: state.mindmap
 		};
 	}
