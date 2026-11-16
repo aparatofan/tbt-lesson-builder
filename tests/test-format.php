@@ -52,6 +52,21 @@ check( 'seconds_to_time 868', $F::seconds_to_time( 868 ), '14:28' );
 check( 'seconds_to_time 5', $F::seconds_to_time( 5 ), '0:05' );
 check( 'seconds_to_time 3725', $F::seconds_to_time( 3725 ), '62:05' );
 
+/* ---------- part_time_to_seconds (Start / End boxes only) ---------- */
+
+check( 'part: bare 55', $F::part_time_to_seconds( '55' ), 55 );
+check( 'part: bare 130', $F::part_time_to_seconds( '130' ), 130 );
+check( 'part: bare 0', $F::part_time_to_seconds( '0' ), 0 );
+check( 'part: 1.30', $F::part_time_to_seconds( '1.30' ), 90 );
+check( 'part: 14.28', $F::part_time_to_seconds( '14.28' ), 868 );
+check( 'part: 1.75', $F::part_time_to_seconds( '1.75' ), null );
+check( 'part: 1.2.3', $F::part_time_to_seconds( '1.2.3' ), null );
+check( 'part: 12345', $F::part_time_to_seconds( '12345' ), null );
+check( 'part: falls back to m:ss', $F::part_time_to_seconds( ' 1:20 ' ), 80 );
+check( 'part: falls back to Excel a:bb:00', $F::part_time_to_seconds( '14:28:00' ), 868 );
+check( 'part: words', $F::part_time_to_seconds( 'abc' ), null );
+check( 'part: empty', $F::part_time_to_seconds( '' ), null );
+
 /* ---------- parse_qa ---------- */
 
 $qa = $F::parse_qa( "time\tquestion\tanswer\n\n1:00\tSecond?\tB\n0:22\tFirst?\tA\n  \n1:20:00\tThird\t\n" );
@@ -66,6 +81,9 @@ check( 'parse_qa extra columns rejoined', $qa[1]['answer'], 'an, unquoted, answe
 $qa = $F::parse_qa( "0:10\tSame A\tx\n0:05\tEarlier\ty\n0:10\tSame B\tz" );
 check( 'parse_qa stable for equal times', array_column( $qa, 'question' ), array( 'Earlier', 'Same A', 'Same B' ) );
 check( 'parse_qa row without question skipped', count( $F::parse_qa( "0:10\t\tanswer" ) ), 0 );
+
+check( 'parse_qa bare-digit time skipped (numbered line)', count( $F::parse_qa( "55\tQ\tA" ) ), 0 );
+check( 'parse_qa numbered list skipped', count( $F::parse_qa( "1\tWhat?\tA\n2\tWhy?\tB" ) ), 0 );
 
 /* ---------- resolve_parts / assign_questions ---------- */
 
@@ -84,7 +102,7 @@ check( 'resolve_parts no errors', $r['errors'], array() );
 $r = $F::resolve_parts(
 	array(
 		array( 'start' => '', 'end' => '1:00' ),
-		array( 'start' => '', 'end' => '3.08' ),
+		array( 'start' => '', 'end' => '3;08' ),
 		array( 'start' => '', 'end' => '2:00' ),
 		array( 'start' => '0:30', 'end' => '3:00' ),
 		array( 'start' => '', 'end' => '' ),
@@ -110,6 +128,16 @@ check( 'assign boundary goes to the earlier part', array_column( $a['buckets'][0
 check( 'assign second part', array_column( $a['buckets'][1], 'question' ), array( 'After' ) );
 check( 'assign bad part gets nothing', $a['buckets'][2], array() );
 check( 'assign outside', array_column( $a['outside'], 'time' ), array( '3:21', '3:32' ) );
+
+$r = $F::resolve_parts( array( array( 'start' => '', 'end' => '55' ), array( 'start' => '1.30', 'end' => '130' ) ) );
+check( 'resolve_parts bare digits and dot', $r['ranges'], array( array( 'start' => 0, 'end' => 55 ), array( 'start' => 90, 'end' => 130 ) ) );
+
+$out = $F::questions_outside(
+	array( 'start' => 55, 'end' => 150 ),
+	$F::parse_qa( "0:50\tBefore\t\n0:55\tAt start\t\n2:00\tMiddle\t\n2:30\tAt end\t\n2:41\tAfter\t\n2:59\tLater\t" )
+);
+check( 'questions_outside: ends inclusive, in order', array_column( $out, 'time' ), array( '0:50', '2:41', '2:59' ) );
+check( 'questions_outside: none', $F::questions_outside( array( 'start' => 0, 'end' => 80 ), $F::parse_qa( "0:00\tA\t\n1:20\tB\t" ) ), array() );
 
 /* ---------- End to end: the Stress lesson paste → the live tables ---------- */
 

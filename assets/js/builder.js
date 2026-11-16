@@ -67,6 +67,14 @@
 		return null;
 	}
 
+	/** A part's Start or End box: bare digits as seconds, m.ss, then timeToSeconds(). */
+	function partTimeToSeconds(value) {
+		var v = jsTrim(value), m;
+		if (/^\d{1,4}$/.test(v)) { return +v; }
+		if ((m = v.match(/^(\d{1,3})\.([0-5]\d)$/))) { return (+m[1]) * 60 + (+m[2]); }
+		return timeToSeconds(v);
+	}
+
 	function secondsToTime(s) {
 		s = Math.max(0, s | 0);
 		return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
@@ -93,8 +101,8 @@
 		parts.forEach(function (p, i) {
 			var startRaw = jsTrim(p.start), endRaw = jsTrim(p.end);
 			var auto = i === 0 ? 0 : prevEnd;
-			var start = startRaw === '' ? auto : timeToSeconds(startRaw);
-			var end = endRaw === '' ? null : timeToSeconds(endRaw);
+			var start = startRaw === '' ? auto : partTimeToSeconds(startRaw);
+			var end = endRaw === '' ? null : partTimeToSeconds(endRaw);
 			var error = '';
 			if (startRaw !== '' && start === null) { error = 'Use minutes:seconds, e.g. 3:08'; }
 			else if (start === null) { error = 'Enter the start'; }

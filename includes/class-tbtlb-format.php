@@ -155,6 +155,26 @@ final class TBTLB_Format {
 	}
 
 	/**
+	 * A part's Start or End box: also bare digits as seconds (`55` → 55,
+	 * `130` → 130) and one dot as the separator (`1.30` → 90), then
+	 * everything time_to_seconds() reads. The questions paste keeps
+	 * time_to_seconds(), so a numbered line there is still skipped.
+	 *
+	 * @param string $value Time as typed.
+	 * @return int|null
+	 */
+	public static function part_time_to_seconds( $value ) {
+		$trimmed = self::js_trim( $value );
+		if ( preg_match( '/^\d{1,4}$/', $trimmed ) ) {
+			return (int) $trimmed;
+		}
+		if ( preg_match( '/^(\d{1,3})\.([0-5]\d)$/', $trimmed, $m ) ) {
+			return (int) $m[1] * 60 + (int) $m[2];
+		}
+		return self::time_to_seconds( $trimmed );
+	}
+
+	/**
 	 * Seconds → `m:ss` (80 → 1:20, 868 → 14:28).
 	 *
 	 * @param int $seconds Seconds.
@@ -229,8 +249,8 @@ final class TBTLB_Format {
 			$start_raw = self::js_trim( isset( $part['start'] ) ? $part['start'] : '' );
 			$end_raw   = self::js_trim( isset( $part['end'] ) ? $part['end'] : '' );
 			$auto      = 0 === $i ? 0 : $prev_end;
-			$start     = '' === $start_raw ? $auto : self::time_to_seconds( $start_raw );
-			$end       = '' === $end_raw ? null : self::time_to_seconds( $end_raw );
+			$start     = '' === $start_raw ? $auto : self::part_time_to_seconds( $start_raw );
+			$end       = '' === $end_raw ? null : self::part_time_to_seconds( $end_raw );
 
 			$error = '';
 			if ( '' !== $start_raw && null === $start ) {
@@ -294,6 +314,24 @@ final class TBTLB_Format {
 			'buckets' => $buckets,
 			'outside' => $outside,
 		);
+	}
+
+	/**
+	 * The questions of one part that fall outside its range (t < start or
+	 * t > end; both ends are inside), in order.
+	 *
+	 * @param array $range { start, end } from resolve_parts().
+	 * @param array $rows  Output of parse_qa().
+	 * @return array[]
+	 */
+	public static function questions_outside( array $range, array $rows ) {
+		$out = array();
+		foreach ( $rows as $row ) {
+			if ( $row['t'] < $range['start'] || $row['t'] > $range['end'] ) {
+				$out[] = $row;
+			}
+		}
+		return $out;
 	}
 
 	/* ---------- Flashcards ---------- */
