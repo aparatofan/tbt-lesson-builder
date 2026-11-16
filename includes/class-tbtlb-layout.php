@@ -22,7 +22,7 @@ final class TBTLB_Layout {
 	 * of the sets and the poll it made.
 	 *
 	 * @param array $lesson Validated lesson (TBTLB_Rest::validate()).
-	 * @param array $made   { sets: int[], poll: int }.
+	 * @param array $made   { sets: int[] keyed by part index (none for a linked part), poll: int }.
 	 * @return string|WP_Error
 	 */
 	public static function build( array $lesson, array $made = array() ) {
@@ -51,7 +51,7 @@ final class TBTLB_Layout {
 			$g[ $key ] = $markup;
 		}
 
-		$sets    = isset( $made['sets'] ) ? array_map( 'intval', $made['sets'] ) : array_fill( 0, count( $lesson['parts'] ), 0 );
+		$sets    = isset( $made['sets'] ) ? array_map( 'intval', $made['sets'] ) : array();
 		$poll_id = isset( $made['poll'] ) ? (int) $made['poll'] : 0;
 		$sc      = static function ( $html ) {
 			return TBTLB_Format::escape_shortcode_text( $html );
@@ -99,7 +99,7 @@ final class TBTLB_Layout {
 				array(
 					'{{HEADER_ROW}}' => $g[ 'part' . $i ],
 					'{{N}}'          => (string) ( $i + 1 ),
-					'{{FLASHCARDS}}' => '[tbt_flashcards id="' . (int) $sets[ $i ] . '"]',
+					'{{FLASHCARDS}}' => '' !== $part['media_url'] ? '[tbt_flashcards url="' . esc_url( $part['media_url'] ) . '"]' : '[tbt_flashcards id="' . ( isset( $sets[ $i ] ) ? (int) $sets[ $i ] : 0 ) . '"]',
 					'{{ORDINAL}}'    => TBTLB_Format::ordinal( $i + 1 ),
 					'{{IFRAME}}'     => TBTLB_Format::embed_iframe( $lesson['video_id'], $part['start'], $part['end'] ),
 					'{{TABLE}}'      => $sc( TBTLB_Format::comprehension_html( $part['rows'], $cat['color'] ) ),
@@ -127,11 +127,26 @@ final class TBTLB_Layout {
 			)
 		);
 
+		// Sets and linked files, each in part order; an empty attribute is left out.
+		$ids  = array();
+		$urls = array();
+		foreach ( $lesson['parts'] as $i => $part ) {
+			if ( '' !== $part['media_url'] ) {
+				$urls[] = esc_url( $part['media_url'] );
+			} else {
+				$ids[] = isset( $sets[ $i ] ) ? (int) $sets[ $i ] : 0;
+			}
+		}
+		$glossary = '[tbt_flashcards_glossary'
+			. ( $ids ? ' ids="' . implode( ',', $ids ) . '"' : '' )
+			. ( $urls ? ' urls="' . implode( ',', $urls ) . '"' : '' )
+			. ' domain="' . esc_attr( $lesson['category'] ) . '"]';
+
 		$out[] = self::fill(
 			'glossary',
 			array(
 				'{{HEADER_ROW}}' => $g['glossary'],
-				'{{GLOSSARY}}'   => '[tbt_flashcards_glossary ids="' . implode( ',', $sets ) . '" domain="' . esc_attr( $lesson['category'] ) . '"]',
+				'{{GLOSSARY}}'   => $glossary,
 			)
 		);
 
