@@ -228,6 +228,7 @@
 	var busy = { audio: {}, fill: {}, create: false };
 	var audioErr = {};
 	var fillErr = {};
+	var csvMsg = {}; // per part: { text, err } after Choose CSV file
 
 	function save() {
 		try { window.localStorage.setItem(CFG.storageKey, JSON.stringify(state)); } catch (e) { /* storage off or full */ }
@@ -500,6 +501,8 @@
 			watch.appendChild(document.createTextNode('Watch this part'));
 			var cards = el('textarea', { id: 'tbtlb-cards-' + i, className: 'tbtlb-mono', 'data-k': 'cards', rows: '6', placeholder: 'word,phonetic,translation,example\nor just the words, one per line' });
 			var fill = el('button', { type: 'button', className: 'tbtlb-btn tbtlb-small', 'data-fill': '', text: 'Fill with AI' });
+			var csvFile = el('input', { type: 'file', accept: '.csv,.tsv,.txt,text/csv,text/plain', hidden: true, 'aria-hidden': 'true', tabindex: '-1' });
+			var csvBtn = el('button', { type: 'button', className: 'tbtlb-btn tbtlb-small', 'data-csv': '', text: 'Choose CSV file' });
 			var qa = el('textarea', { id: 'tbtlb-qa-' + i, className: 'tbtlb-mono', 'data-k': 'qa', rows: '4', placeholder: 'Paste three columns from Excel: time · question · answer\n0:22\tHow does she want to engage the audience?\tShe wants the audience to…' });
 
 			start.value = p.start;
@@ -507,7 +510,17 @@
 			cards.value = p.cards;
 			qa.value = p.qa;
 			[start, end, cards, qa].forEach(function (input) {
-				input.addEventListener('input', function () { state.parts[i][input.dataset.k] = input.value; changed(); });
+				input.addEventListener('input', function () {
+					state.parts[i][input.dataset.k] = input.value;
+					if (input === cards) { delete csvMsg[i]; }
+					changed();
+				});
+			});
+			csvBtn.addEventListener('click', function () { csvFile.click(); });
+			csvFile.addEventListener('change', function () {
+				var file = csvFile.files && csvFile.files[0];
+				csvFile.value = ''; // the same file can be chosen again
+				if (file) { loadCsv(i, file); }
 			});
 			[start, end].forEach(function (input) {
 				input.addEventListener('blur', function () {
@@ -527,6 +540,7 @@
 				folded.splice(i, 1);
 				busy.fill = {};
 				fillErr = {};
+				csvMsg = {};
 				renderParts();
 				changed();
 			});
@@ -574,8 +588,11 @@
 						cards,
 						el('div', { className: 'tbtlb-below' }, [
 							el('span', { className: 'tbtlb-chipset', 'data-chips': 'cards' }),
+							csvBtn,
+							csvFile,
 							fill,
-							el('span', { className: 'tbtlb-fill-err', 'data-fill-err': '' })
+							el('span', { className: 'tbtlb-fill-err', 'data-fill-err': '' }),
+							el('span', { 'data-csv-msg': '' })
 						])
 					])
 				]),
@@ -595,6 +612,36 @@
 		});
 		$('#tbtlb-add-part').disabled = state.parts.length >= CFG.maxParts;
 		$('#tbtlb-part-count').textContent = state.parts.length ? state.parts.length + ' of ' + CFG.maxParts + ' parts' : 'Lessons have 1–' + CFG.maxParts + ' parts';
+	}
+
+	/**
+	 * Choose CSV file: the file is read in the browser and its text goes into
+	 * the part's Flashcards box, as if pasted. Nothing is uploaded.
+	 */
+	function loadCsv(i, file) {
+		var name = file.name;
+		function done(text, err) {
+			csvMsg[i] = { text: text, err: !!err };
+			refresh();
+		}
+		if (file.size > 1024 * 1024) { done(name + ' is larger than 1 MB.', true); return; }
+		var reader = new FileReader();
+		reader.onerror = function () { done(name + ' could not be read.', true); };
+		reader.onload = function () {
+			var text = String(reader.result || '').replace(/^\uFEFF/, '').replace(/\r\n|\r/g, '\n').replace(/\s+$/, '');
+			if (!jsTrim(text)) { done(name + ' is empty.', true); return; }
+			var cards = parseCards(text);
+			if (!cards.length) { done('No flashcards found in ' + name + '.', true); return; }
+			var part = state.parts[i];
+			if (!part || busy.fill[i]) { return; }
+			if (jsTrim(part.cards) && part.cards !== text && !window.confirm('Replace the flashcards in part ' + (i + 1) + ' with ' + name + '?')) { return; }
+			part.cards = text;
+			var box = $('[data-part="' + i + '"] [data-k="cards"]');
+			if (box) { box.value = text; }
+			csvMsg[i] = { text: 'Loaded ' + name + ': ' + plural(cards.length, 'card', 'cards') + '.', err: false };
+			changed();
+		};
+		reader.readAsText(file, 'UTF-8');
 	}
 
 	function chip(text, kind) { return el('span', { className: 'tbtlb-chip' + (kind ? ' is-' + kind : ''), text: text }); }
@@ -731,6 +778,10 @@
 			fill.textContent = busy.fill[i] ? 'Filling…' : (todo ? 'Fill ' + todo + ' with AI' : (cards.length ? 'All filled' : 'Fill with AI'));
 			$('[data-k="cards"]', box).disabled = !!busy.fill[i];
 			$('[data-fill-err]', box).textContent = fillErr[i] || '';
+			$('[data-csv]', box).disabled = !!busy.fill[i];
+			var cm = $('[data-csv-msg]', box), msg = csvMsg[i];
+			cm.textContent = msg ? msg.text : '';
+			cm.className = msg && msg.err ? 'tbtlb-fill-err' : 'tbtlb-hint';
 			setStep(box, 'cards', cards.length && !todo ? 'done' : '');
 
 			/* Questions */
@@ -983,6 +1034,7 @@
 		if (!window.confirm('Start over? This clears the whole form.')) { return; }
 		state = blank();
 		folded = [];
+		csvMsg = {};
 		audioErr = {};
 		fillErr = {};
 		forget();
