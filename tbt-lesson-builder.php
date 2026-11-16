@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       TBT Lesson Builder
  * Description:       Fill in a lesson once and get the Divi draft: flashcard sets, poll, warm-up recordings and the whole layout.
- * Version:           0.1.0
+ * Version:           0.2.0
  * Requires at least: 6.0
  * Requires PHP:      8.0
  * Author:            The Blue Tree
@@ -11,7 +11,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'TBTLB_VERSION', '0.1.0' );
+define( 'TBTLB_VERSION', '0.2.0' );
 define( 'TBTLB_FILE', __FILE__ );
 define( 'TBTLB_DIR', plugin_dir_path( __FILE__ ) );
 define( 'TBTLB_URL', plugin_dir_url( __FILE__ ) );

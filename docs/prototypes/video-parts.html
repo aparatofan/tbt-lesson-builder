@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson Builder — Video parts prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&family=Roboto+Mono:wght@400;500;700&family=Roboto+Slab:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* Tokens copied from tbt-tokens.css 2.1 (Hub-owned; values only, for the prototype). */
+:root {
+  --tbt-blue:#0856C9; --tbt-blue-dark:#063F94; --tbt-pd:#006600; --tbt-gi:#663366;
+  --tbt-canvas:#F6F8FC; --tbt-surface:#FFFFFF; --tbt-input:#F0F5FE; --tbt-selected-bg:#EDF4FF; --tbt-border:#D8E3F0;
+  --tbt-ink:#1F2937; --tbt-muted:#667085;
+  --tbt-success:#16803C; --tbt-success-bg:#ECFDF3; --tbt-error:#C62828; --tbt-error-bg:#FFF1F1;
+  --tbt-font-ui:"Roboto",sans-serif; --tbt-font-content:"Roboto Slab",Georgia,serif; --tbt-font-identity:"Roboto Mono",ui-monospace,monospace;
+  --tbt-s1:4px; --tbt-s2:8px; --tbt-s3:12px; --tbt-s4:16px; --tbt-s5:24px; --tbt-s6:32px; --tbt-s7:48px;
+  --tbt-radius-control:12px; --tbt-radius-card:16px; --tbt-radius-panel:22px; --tbt-radius-pill:999px;
+  --tbt-shadow:0 6px 20px rgba(24,56,96,.07); --tbt-focus-ring:0 0 0 3px rgba(8,86,201,.18); --tbt-ease:cubic-bezier(.22,.61,.36,1);
+}
+* { box-sizing:border-box; }
+body { margin:0; background:var(--tbt-canvas); color:var(--tbt-ink); font:400 16px/1.5 var(--tbt-font-ui); }
+
+/* ---- prototype chrome ---- */
+.proto-bar { max-width:980px; margin:0 auto; padding:var(--tbt-s5) var(--tbt-s5) 0; display:flex; justify-content:space-between; align-items:center; gap:var(--tbt-s4); color:var(--tbt-muted); font-size:14px; }
+.proto-bar b { font:700 14px/1 var(--tbt-font-identity); color:var(--tbt-blue); letter-spacing:.02em; }
+
+/* ---- the stage (same shell as builder.css) ---- */
+.tbtlb { --tbtlb-look:var(--tbt-pd); }
+.wrap { max-width:980px; margin:0 auto; padding:var(--tbt-s4) var(--tbt-s5) 96px; }
+.stage { background:var(--tbt-surface); border:1px solid var(--tbt-border); border-radius:var(--tbt-radius-panel); box-shadow:var(--tbt-shadow); padding:40px; }
+.stage > h2 { font:700 22px/1.25 var(--tbt-font-content); margin:0 0 var(--tbt-s1); }
+.lead { color:var(--tbt-muted); margin:0 0 var(--tbt-s6); max-width:62ch; }
+
+input[type=text], textarea {
+  font:400 16px/1.45 var(--tbt-font-ui); color:var(--tbt-ink); background:var(--tbt-input);
+  border:1px solid transparent; border-radius:var(--tbt-radius-control); padding:11px 14px; width:100%;
+  transition:background .15s, border-color .15s, box-shadow .15s;
+}
+input:focus, textarea:focus { outline:none; background:var(--tbt-surface); border-color:var(--tbt-blue); box-shadow:var(--tbt-focus-ring); }
+input.is-invalid { border-color:var(--tbt-error); background:var(--tbt-error-bg); }
+textarea { resize:vertical; display:block; }
+textarea.mono { font:400 14px/1.6 var(--tbt-font-identity); white-space:pre; overflow-x:auto; }
+
+.lbl { font-weight:600; font-size:15px; }
+.hint { color:var(--tbt-muted); font-size:14px; font-weight:400; }
+.err { color:var(--tbt-error); font-size:14px; }
+
+.btn { font:600 15px/1 var(--tbt-font-ui); border-radius:var(--tbt-radius-control); height:40px; padding:0 16px; border:1px solid var(--tbt-border); background:var(--tbt-surface); color:var(--tbt-blue); cursor:pointer; display:inline-flex; align-items:center; gap:var(--tbt-s2); text-decoration:none; transition:background .15s, border-color .15s; }
+.btn:hover { background:var(--tbt-selected-bg); border-color:var(--tbt-blue); }
+.btn:focus { outline:none; box-shadow:var(--tbt-focus-ring); }
+.btn:disabled { opacity:.5; cursor:not-allowed; }
+.btn.small { height:34px; padding:0 12px; font-size:14px; }
+.iconbtn { width:36px; height:36px; border-radius:10px; border:0; background:transparent; color:var(--tbt-muted); cursor:pointer; display:grid; place-items:center; }
+.iconbtn:hover { background:var(--tbt-selected-bg); color:var(--tbt-ink); }
+.iconbtn.del:hover { background:var(--tbt-error-bg); color:var(--tbt-error); }
+.iconbtn:focus { outline:none; box-shadow:var(--tbt-focus-ring); }
+
+.chip { font-size:13px; font-weight:600; border-radius:var(--tbt-radius-pill); padding:3px 10px; background:var(--tbt-input); color:var(--tbt-muted); white-space:nowrap; }
+.chip.ok { background:var(--tbt-success-bg); color:var(--tbt-success); }
+.chip.err { background:var(--tbt-error-bg); color:var(--tbt-error); }
+
+/* ---- video field ---- */
+.video { padding-bottom:var(--tbt-s6); margin-bottom:var(--tbt-s6); border-bottom:1px solid var(--tbt-border); }
+.video label { display:block; margin-bottom:var(--tbt-s2); }
+.video-info { margin-top:var(--tbt-s2); display:flex; gap:var(--tbt-s3); align-items:center; min-height:24px; }
+
+/* ---- parts ---- */
+.parts { display:flex; flex-direction:column; gap:var(--tbt-s4); }
+.part { border:1px solid var(--tbt-border); border-radius:var(--tbt-radius-card); overflow:hidden; }
+.part-head { display:flex; align-items:center; gap:var(--tbt-s3); padding:14px var(--tbt-s4) 14px 20px; background:var(--tbt-surface); cursor:pointer; user-select:none; }
+.part-head:hover { background:var(--tbt-canvas); }
+.num { width:28px; height:28px; border-radius:50%; background:var(--tbtlb-look); color:var(--tbt-surface); display:grid; place-items:center; font:700 13px/1 var(--tbt-font-ui); flex-shrink:0; }
+.part-title { font:700 17px/1 var(--tbt-font-content); }
+.part-range { font:500 14px/1 var(--tbt-font-identity); color:var(--tbt-muted); font-variant-numeric:tabular-nums; }
+.part-sum { display:flex; gap:6px; margin-left:auto; }
+.chev { transition:transform .2s var(--tbt-ease); }
+.part.is-closed .chev { transform:rotate(-90deg); }
+.part.is-closed .part-body { display:none; }
+
+.part-body { border-top:1px solid var(--tbt-border); }
+.row { display:grid; grid-template-columns:190px minmax(0,1fr); gap:var(--tbt-s5); padding:var(--tbt-s5) var(--tbt-s5) var(--tbt-s5) 20px; border-top:1px solid var(--tbt-border); }
+.row:first-child { border-top:0; }
+.row-label { display:flex; gap:var(--tbt-s3); align-items:flex-start; padding-top:10px; }
+.row-label .step { width:22px; height:22px; border-radius:50%; border:2px solid var(--tbt-border); display:grid; place-items:center; font:700 11px/1 var(--tbt-font-ui); color:var(--tbt-muted); flex-shrink:0; transition:all .2s; }
+.row-label .step.done { border-color:var(--tbt-success); background:var(--tbt-success); color:var(--tbt-surface); }
+.row-label .step.bad { border-color:var(--tbt-error); color:var(--tbt-error); }
+.row-label div { display:flex; flex-direction:column; gap:2px; }
+
+/* time row */
+.time-line { display:flex; align-items:center; gap:var(--tbt-s3); flex-wrap:wrap; }
+.tfield { display:flex; flex-direction:column; gap:4px; }
+.tfield span { font-size:12.5px; color:var(--tbt-muted); font-weight:500; text-transform:uppercase; letter-spacing:.06em; }
+.tfield input { width:104px; text-align:center; font:500 17px/1.3 var(--tbt-font-identity); font-variant-numeric:tabular-nums; }
+.tfield input::placeholder { color:#9AA6B8; }
+.arrow { color:var(--tbt-muted); padding-top:20px; }
+.time-meta { padding-top:20px; display:flex; gap:var(--tbt-s3); align-items:center; flex-wrap:wrap; }
+.watch { color:var(--tbt-blue); font-weight:600; font-size:14px; text-decoration:none; display:inline-flex; gap:6px; align-items:center; }
+.watch:hover { text-decoration:underline; }
+.watch[aria-disabled=true] { color:var(--tbt-muted); pointer-events:none; }
+.below { margin-top:var(--tbt-s2); display:flex; align-items:center; gap:var(--tbt-s3); flex-wrap:wrap; min-height:22px; }
+
+/* questions preview */
+.qtable { width:100%; border-collapse:collapse; margin-top:var(--tbt-s3); font-size:14.5px; table-layout:fixed; }
+.qtable th { font:600 12.5px/1.3 var(--tbt-font-ui); color:var(--tbt-muted); text-align:left; padding:0 var(--tbt-s3) 6px; text-transform:uppercase; letter-spacing:.06em; }
+.qtable td { padding:9px var(--tbt-s3); border-top:1px solid var(--tbt-border); vertical-align:top; }
+.qtable td.t { font:500 13.5px/1.45 var(--tbt-font-identity); color:var(--tbt-muted); width:64px; }
+.qtable td.q { font-family:var(--tbt-font-content); }
+.qtable td.a { color:var(--tbt-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.qtable tr.out td { background:var(--tbt-error-bg); }
+.qtable tr.out td.t { color:var(--tbt-error); font-weight:700; }
+.qtable col.c-t { width:64px; } .qtable col.c-a { width:34%; }
+
+.addrow { display:flex; align-items:center; gap:var(--tbt-s4); margin-top:var(--tbt-s5); }
+
+.note { max-width:980px; margin:0 auto; padding:0 var(--tbt-s5); }
+.note .stage { padding:var(--tbt-s5) 40px; box-shadow:none; }
+.note h3 { font:700 16px/1.3 var(--tbt-font-content); margin:0 0 var(--tbt-s2); }
+.note ol { margin:0; padding-left:20px; color:var(--tbt-ink); font-size:15px; }
+.note li { margin-bottom:4px; }
+
+@media (max-width:860px) { .row { grid-template-columns:1fr; gap:var(--tbt-s3); } .row-label { padding-top:0; } .stage { padding:var(--tbt-s5); } }
+</style>
+</head>
+<body class="tbtlb">
+
+<div class="proto-bar"><b>LESSON BUILDER · PROTOTYPE</b><span>Video parts only · try typing, pasting, adding parts</span></div>
+
+<div class="wrap">
+  <section class="stage">
+    <h2>Video parts</h2>
+    <p class="lead">Paste the video once. Then fill in each part: its time, its flashcards, its questions.</p>
+
+    <div class="video">
+      <label class="lbl" for="yt">YouTube video <span class="hint">— the link or the whole embed code</span></label>
+      <input type="text" id="yt" placeholder="https://youtu.be/…  or  <iframe … >">
+      <div class="video-info" id="yt-info"></div>
+    </div>
+
+    <div class="parts" id="parts"></div>
+
+    <div class="addrow">
+      <button class="btn" id="add" type="button">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+        Add part
+      </button>
+      <span class="hint" id="count"></span>
+    </div>
+  </section>
+</div>
+
+<div class="note">
+  <div class="stage">
+    <h3>What changed from the live builder</h3>
+    <ol>
+      <li>Questions are pasted <b>inside each part</b>. The one big paste box at the top and the timeline bar are gone.</li>
+      <li>Each part has three rows, one under another: <b>Time → Flashcards → Questions</b>, each with a tick when it’s done.</li>
+      <li>Times accept <b>55</b> as well as <b>0:55</b> or <b>1:30</b>, and show as m:ss after you leave the box.</li>
+      <li>A question whose time falls outside its part is shown in red, right in that part.</li>
+      <li>The embed code is hidden. “Watch this part” opens the clip so you can check the times.</li>
+      <li>Click a part’s header to fold it away. Handy with 6–10 parts.</li>
+    </ol>
+  </div>
+</div>
+
+<script>
+(function () {
+  var MAX = 10;
+  var SAMPLE_YT = '<iframe width="1080" height="615" src="https://www.youtube.com/embed/CAC9v-KDIUM?si=e1-qoCRLA4D" title="YouTube video player" frameborder="0" allowfullscreen></iframe>';
+  var state = {
+    yt: SAMPLE_YT,
+    parts: [
+      { start: '', end: '0:55', cards: 'Limitless\nProcrastination\nBrain fog\nChase a feeling\nProductivity hacks\nDouble down on',
+        qa: '0:18\tWhat does the pill do for the main character?\tIt unlocks the full potential of his brain, making him extraordinarily focused, intelligent and productive.\n0:41\tWhat do many people do when they want to be more productive?\tThey look for shortcuts – supplements, hacks, or substances – that promise quick results without much effort.\n1:02\tWhat is the speaker\'s “limitless pill”?\tIt\'s a combination of five free, everyday habits that anyone can start immediately – no cost, no extremes.',
+        open: true },
+      { start: '', end: '', cards: '', qa: '', open: true }
+    ]
+  };
+
+  function $(s, r) { return (r || document).querySelector(s); }
+  function el(tag, props, kids) {
+    var n = document.createElement(tag);
+    if (props) Object.keys(props).forEach(function (k) {
+      if (k === 'text') n.textContent = props[k];
+      else if (k === 'html') n.innerHTML = props[k];
+      else if (k === 'className') n.className = props[k];
+      else n.setAttribute(k, props[k]);
+    });
+    (kids || []).forEach(function (c) { if (c) n.appendChild(c); });
+    return n;
+  }
+  function lines(t) { return String(t || '').split(/\r\n|\r|\n/).map(function (l) { return l.trim(); }).filter(Boolean); }
+
+  /* ---- time ---- */
+  function toSec(v) {
+    v = String(v || '').trim().replace('.', ':');
+    var m;
+    if (/^\d{1,4}$/.test(v)) return +v;                         // 55 -> 0:55
+    if ((m = v.match(/^(\d{1,3}):([0-5]\d)$/))) return (+m[1]) * 60 + (+m[2]);
+    if ((m = v.match(/^(\d{1,2}):([0-5]\d):([0-5]\d)$/))) return (+m[1]) * 3600 + (+m[2]) * 60 + (+m[3]);
+    return null;
+  }
+  function fmt(s) { return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+  function dur(s) { var m = Math.floor(s / 60), r = s % 60; return (m ? m + ' min ' : '') + (r || !m ? r + ' s' : ''); }
+
+  function videoId(v) {
+    v = String(v || '');
+    var m = v.match(/(?:youtube\.com\/(?:embed\/|watch\?v=|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+    if (m) return m[1];
+    if (/^[A-Za-z0-9_-]{11}$/.test(v.trim())) return v.trim();
+    return null;
+  }
+
+  /* Resolve every part's range; an empty start continues from the previous end. */
+  function resolve() {
+    var prevEnd = null;
+    return state.parts.map(function (p, i) {
+      var auto = i === 0 ? 0 : prevEnd;
+      var sRaw = p.start.trim(), eRaw = p.end.trim();
+      var start = sRaw === '' ? auto : toSec(sRaw);
+      var end = eRaw === '' ? null : toSec(eRaw);
+      var r = { auto: auto, start: start, end: end, startErr: '', endErr: '' };
+      if (sRaw !== '' && start === null) r.startErr = 'Use 0:55 or 1:30';
+      else if (start === null) r.startErr = 'Enter where it starts';
+      if (eRaw !== '' && end === null) r.endErr = 'Use 0:55 or 1:30';
+      else if (start !== null && end !== null && end <= start) r.endErr = 'End must come after the start';
+      else if (!r.startErr && prevEnd !== null && start < prevEnd) r.startErr = 'Starts before part ' + i + ' ends (' + fmt(prevEnd) + ')';
+      r.ok = !r.startErr && !r.endErr && start !== null && end !== null;
+      if (r.ok) prevEnd = end;
+      return r;
+    });
+  }
+
+  /* Questions pasted from Excel: time, question, answer (tab- or comma-separated). */
+  function parseQa(text) {
+    var rows = [], bad = 0;
+    lines(text).forEach(function (line) {
+      var cols = line.indexOf('\t') !== -1 ? line.split('\t') : line.split(',');
+      var t = toSec(cols[0]);
+      if (t === null || cols.length < 2 || !cols[1].trim()) { bad++; return; }
+      rows.push({ t: t, q: cols[1].trim(), a: cols.slice(2).join(', ').trim() });
+    });
+    rows.sort(function (a, b) { return a.t - b.t; });
+    return { rows: rows, bad: bad };
+  }
+  function parseCards(text) {
+    return lines(text).map(function (l) {
+      var c = l.split(',');
+      return { word: c[0].trim(), full: c.length >= 4 && c.slice(1, 4).every(function (x) { return x.trim(); }) };
+    }).filter(function (c) { return c.word && ['word', 'english', 'front'].indexOf(c.word.toLowerCase()) === -1; });
+  }
+
+  /* ---- render ---- */
+  var ICON_CHEV = '<svg class="chev" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7l4 4 4-4"/></svg>';
+  var ICON_BIN = '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h12M7 5V3.5h4V5M5 5l.7 9.5h6.6L13 5M7.5 8v4M10.5 8v4"/></svg>';
+  var ICON_PLAY = '<svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M3 2l9 5-9 5z"/></svg>';
+
+  function buildParts() {
+    var box = $('#parts');
+    box.textContent = '';
+    state.parts.forEach(function (p, i) {
+      var n = i + 1;
+      var part = el('div', { className: 'part' + (p.open ? '' : ' is-closed'), 'data-i': i });
+
+      var head = el('div', { className: 'part-head', role: 'button', tabindex: '0', 'aria-expanded': String(p.open) }, [
+        el('span', { className: 'num', text: String(n) }),
+        el('span', { className: 'part-title', text: 'Part ' + n }),
+        el('span', { className: 'part-range', 'data-range': '' }),
+        el('span', { className: 'part-sum', 'data-sum': '' }),
+        el('span', { html: ICON_CHEV, className: 'hint' })
+      ]);
+      var del = el('button', { type: 'button', className: 'iconbtn del', title: 'Remove part ' + n, 'aria-label': 'Remove part ' + n, html: ICON_BIN });
+      head.appendChild(del);
+      function toggle() { p.open = !p.open; part.classList.toggle('is-closed', !p.open); head.setAttribute('aria-expanded', String(p.open)); }
+      head.addEventListener('click', function (e) { if (!del.contains(e.target)) toggle(); });
+      head.addEventListener('keydown', function (e) { if ((e.key === 'Enter' || e.key === ' ') && e.target === head) { e.preventDefault(); toggle(); } });
+      del.addEventListener('click', function () {
+        state.parts.splice(i, 1);
+        if (!state.parts.length) state.parts.push({ start: '', end: '', cards: '', qa: '', open: true });
+        buildParts();
+      });
+
+      /* row 1: time */
+      var start = el('input', { type: 'text', 'data-k': 'start', 'aria-label': 'Part ' + n + ' start', inputmode: 'numeric' });
+      var end = el('input', { type: 'text', 'data-k': 'end', 'aria-label': 'Part ' + n + ' end', inputmode: 'numeric', placeholder: 'm:ss' });
+      start.value = p.start; end.value = p.end;
+      var timeRow = el('div', { className: 'row' }, [
+        el('div', { className: 'row-label' }, [el('span', { className: 'step', 'data-step': 'time', text: '1' }), el('div', {}, [el('span', { className: 'lbl', text: 'Time' }), el('span', { className: 'hint', text: 'Where the clip starts and ends' })])]),
+        el('div', {}, [
+          el('div', { className: 'time-line' }, [
+            el('label', { className: 'tfield' }, [el('span', { text: 'Start' }), start]),
+            el('span', { className: 'arrow', text: '→' }),
+            el('label', { className: 'tfield' }, [el('span', { text: 'End' }), end]),
+            el('div', { className: 'time-meta' }, [
+              el('span', { className: 'chip', 'data-dur': '' }),
+              el('a', { className: 'watch', 'data-watch': '', target: '_blank', rel: 'noopener', html: ICON_PLAY + 'Watch this part' })
+            ])
+          ]),
+          el('div', { className: 'below' }, [el('span', { className: 'hint', 'data-time-hint': '' }), el('span', { className: 'err', 'data-time-err': '' })])
+        ])
+      ]);
+
+      /* row 2: flashcards */
+      var cards = el('textarea', { className: 'mono', rows: '6', 'data-k': 'cards', 'aria-label': 'Part ' + n + ' flashcards', placeholder: 'One word or phrase per line\nprocrastination\nbrain fog\ndouble down on' });
+      cards.value = p.cards;
+      var fill = el('button', { type: 'button', className: 'btn small', 'data-fill': '', text: 'Fill with AI' });
+      var cardsRow = el('div', { className: 'row' }, [
+        el('div', { className: 'row-label' }, [el('span', { className: 'step', 'data-step': 'cards', text: '2' }), el('div', {}, [el('span', { className: 'lbl', text: 'Flashcards' }), el('span', { className: 'hint', text: 'Words from this part' })])]),
+        el('div', {}, [cards, el('div', { className: 'below' }, [el('span', { className: 'chip', 'data-cards': '' }), fill, el('span', { className: 'hint', 'data-fill-msg': '' })])])
+      ]);
+      fill.addEventListener('click', function () {
+        var c = parseCards(p.cards).filter(function (x) { return !x.full; }).length;
+        $('[data-fill-msg]', part).textContent = 'Prototype only — the builder fills phonetics, translation and an example for ' + c + (c === 1 ? ' card.' : ' cards.');
+      });
+
+      /* row 3: questions */
+      var qa = el('textarea', { className: 'mono', rows: '4', 'data-k': 'qa', 'aria-label': 'Part ' + n + ' comprehension questions', placeholder: 'Paste three columns from Excel: time · question · answer\n0:22\tHow does she want to engage the audience?\tShe wants the audience to…' });
+      qa.value = p.qa;
+      var qaRow = el('div', { className: 'row' }, [
+        el('div', { className: 'row-label' }, [el('span', { className: 'step', 'data-step': 'qa', text: '3' }), el('div', {}, [el('span', { className: 'lbl', text: 'Questions' }), el('span', { className: 'hint', text: 'Excel: time, question, answer' })])]),
+        el('div', {}, [qa, el('div', { className: 'below' }, [el('span', { className: 'chip', 'data-qa': '' }), el('span', { className: 'err', 'data-qa-err': '' })]), el('div', { 'data-qtable': '' })])
+      ]);
+
+      [start, end, cards, qa].forEach(function (inp) {
+        inp.addEventListener('input', function () { p[inp.dataset.k] = inp.value; update(); });
+      });
+      [start, end].forEach(function (inp) {
+        inp.addEventListener('blur', function () {
+          var s = toSec(inp.value);
+          if (inp.value.trim() !== '' && s !== null) { inp.value = fmt(s); p[inp.dataset.k] = inp.value; update(); }
+        });
+      });
+
+      part.appendChild(head);
+      part.appendChild(el('div', { className: 'part-body' }, [timeRow, cardsRow, qaRow]));
+      box.appendChild(part);
+    });
+    $('#add').disabled = state.parts.length >= MAX;
+    update();
+  }
+
+  function setStep(part, key, status) {
+    var s = $('[data-step="' + key + '"]', part);
+    s.classList.toggle('done', status === 'done');
+    s.classList.toggle('bad', status === 'bad');
+    s.textContent = status === 'done' ? '✓' : ({ time: '1', cards: '2', qa: '3' })[key];
+  }
+
+  function update() {
+    var id = videoId(state.yt);
+    var info = $('#yt-info');
+    info.textContent = '';
+    if (!state.yt.trim()) info.appendChild(el('span', { className: 'hint', text: 'Needed for every part’s clip.' }));
+    else if (id) info.appendChild(el('span', { className: 'chip ok', text: '✓ Video ' + id }));
+    else info.appendChild(el('span', { className: 'chip err', text: 'No YouTube video found in this' }));
+
+    var ranges = resolve();
+    state.parts.forEach(function (p, i) {
+      var part = $('[data-i="' + i + '"]');
+      var r = ranges[i];
+
+      /* time */
+      var start = $('[data-k="start"]', part), end = $('[data-k="end"]', part);
+      start.placeholder = r.auto !== null && r.auto !== undefined ? fmt(r.auto) : 'm:ss';
+      start.classList.toggle('is-invalid', !!r.startErr);
+      end.classList.toggle('is-invalid', !!r.endErr);
+      $('[data-time-err]', part).textContent = r.startErr || r.endErr;
+      $('[data-time-hint]', part).textContent = (!r.startErr && !r.endErr && p.start.trim() === '' && i > 0 && r.auto !== null) ? 'Starts where part ' + i + ' ends. Type a start to skip a stretch.' : '';
+      var d = $('[data-dur]', part), w = $('[data-watch]', part);
+      if (r.ok) { d.textContent = dur(r.end - r.start); d.style.display = ''; } else d.style.display = 'none';
+      if (r.ok && id) { w.href = 'https://www.youtube.com/embed/' + id + '?start=' + r.start + '&end=' + r.end + '&autoplay=1'; w.removeAttribute('aria-disabled'); }
+      else { w.removeAttribute('href'); w.setAttribute('aria-disabled', 'true'); }
+      $('[data-range]', part).textContent = r.ok ? fmt(r.start) + ' – ' + fmt(r.end) : '';
+      setStep(part, 'time', r.ok ? 'done' : ((r.startErr || r.endErr) ? 'bad' : ''));
+
+      /* cards */
+      var cards = parseCards(p.cards);
+      var todo = cards.filter(function (c) { return !c.full; }).length;
+      var cc = $('[data-cards]', part);
+      cc.textContent = cards.length ? cards.length + (cards.length === 1 ? ' word' : ' words') : 'No words yet';
+      cc.className = 'chip' + (cards.length ? ' ok' : '');
+      var fill = $('[data-fill]', part);
+      fill.disabled = !todo;
+      fill.textContent = todo ? 'Fill ' + todo + ' with AI' : (cards.length ? 'All filled' : 'Fill with AI');
+      if (!todo) $('[data-fill-msg]', part).textContent = '';
+      setStep(part, 'cards', cards.length ? 'done' : '');
+
+      /* questions */
+      var parsed = parseQa(p.qa);
+      var out = r.ok ? parsed.rows.filter(function (q) { return q.t < r.start || q.t > r.end; }) : [];
+      var qc = $('[data-qa]', part);
+      qc.textContent = parsed.rows.length ? parsed.rows.length + (parsed.rows.length === 1 ? ' question' : ' questions') : 'No questions yet';
+      qc.className = 'chip' + (parsed.rows.length && !out.length ? ' ok' : (out.length ? ' err' : ''));
+      var msgs = [];
+      if (out.length) msgs.push(out.length + ' outside ' + fmt(r.start) + '–' + fmt(r.end) + ' — move to the right part or fix the time');
+      if (parsed.bad) msgs.push(parsed.bad + (parsed.bad === 1 ? ' line' : ' lines') + ' skipped: no time or no question');
+      $('[data-qa-err]', part).textContent = msgs.join(' · ');
+      var tb = $('[data-qtable]', part);
+      tb.textContent = '';
+      if (parsed.rows.length) {
+        var tbody = el('tbody');
+        parsed.rows.forEach(function (q) {
+          var isOut = out.indexOf(q) !== -1;
+          tbody.appendChild(el('tr', { className: isOut ? 'out' : '' }, [
+            el('td', { className: 't', text: fmt(q.t) }),
+            el('td', { className: 'q', text: q.q }),
+            el('td', { className: 'a', text: q.a || '—', title: q.a })
+          ]));
+        });
+        tb.appendChild(el('table', { className: 'qtable' }, [
+          el('colgroup', {}, [el('col', { className: 'c-t' }), el('col'), el('col', { className: 'c-a' })]),
+          el('thead', {}, [el('tr', {}, [el('th', { text: 'Time' }), el('th', { text: 'Question' }), el('th', { text: 'Answer' })])]),
+          tbody
+        ]));
+      }
+      setStep(part, 'qa', parsed.rows.length ? (out.length ? 'bad' : 'done') : '');
+
+      /* folded summary */
+      var sum = $('[data-sum]', part);
+      sum.textContent = '';
+      sum.appendChild(el('span', { className: 'chip' + (cards.length ? ' ok' : ''), text: cards.length + ' cards' }));
+      sum.appendChild(el('span', { className: 'chip' + (out.length ? ' err' : (parsed.rows.length ? ' ok' : '')), text: parsed.rows.length + ' questions' }));
+    });
+    $('#count').textContent = state.parts.length + ' of ' + MAX + ' parts';
+  }
+
+  $('#yt').value = state.yt;
+  $('#yt').addEventListener('input', function (e) { state.yt = e.target.value; update(); });
+  $('#add').addEventListener('click', function () {
+    if (state.parts.length >= MAX) return;
+    state.parts.forEach(function (p) { p.open = false; });
+    state.parts.push({ start: '', end: '', cards: '', qa: '', open: true });
+    buildParts();
+    var last = document.querySelectorAll('.part');
+    last = last[last.length - 1];
+    last.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    $('[data-k="end"]', last).focus({ preventScroll: true });
+  });
+
+  buildParts();
+})();
+</script>
+</body>
+</html>
